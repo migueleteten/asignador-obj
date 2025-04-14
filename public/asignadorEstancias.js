@@ -8,7 +8,7 @@ const COLORES_TECHO_ESTANCIA = {
   };
   
   // Función para detectar tipo según color
-  export function detectarTipoEstanciaPorColor(colorHex) {
+  function detectarTipoEstanciaPorColor(colorHex) {
     colorHex = colorHex.toLowerCase().replace("#", "");
     const coincidencia = Object.entries(COLORES_TECHO_ESTANCIA)
       .find(([tipo, color]) => color === colorHex);
@@ -27,7 +27,7 @@ const COLORES_TECHO_ESTANCIA = {
   }
   
   // Función principal
-  export function detectarEstanciasDesdeOBJ(textoOBJ, textoCSV) {
+  function detectarEstanciasDesdeOBJ(textoOBJ, textoCSV) {
     const estanciasCSV = parsearCSV(textoCSV);
     const habitacionesOBJ = parsearOBJ(textoOBJ);
   
