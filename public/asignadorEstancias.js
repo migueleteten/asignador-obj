@@ -52,57 +52,32 @@ const COLORES_TECHO_ESTANCIA = {
   }
   
   // Función principal
-  function detectarEstanciasDesdeOBJ(textoOBJ, textoCSV) {
-    const estanciasCSV = parsearCSV(textoCSV);
+  function detectarEstanciasDesdeOBJ(textoOBJ, estanciasCSV) {
     const habitacionesOBJ = parsearOBJ(textoOBJ);
-  
     const resultado = {};
   
     for (const roomId in habitacionesOBJ) {
-        const habitacion = habitacionesOBJ[roomId];
-      
-        // ⚠️ Filtrar habitaciones no válidas
-        if (!habitacion.color || habitacion.paredes === 0 || habitacion.verticesSuelo.length === 0) {
-          console.warn("❌ Ignorando habitación inválida:", roomId, habitacion);
-          continue;
-        }
-      
-        const mejorMatch = estanciasCSV.reduce((mejor, estancia) => {
-          const diffParedes = Math.abs(estancia.paredes - habitacion.paredes);
-          const diffArea = Math.abs(estancia.area - habitacion.area);
-          const score = diffParedes * 10 + diffArea;
-          return !mejor || score < mejor.score ? { ...estancia, score } : mejor;
-        }, null);
-      
-        resultado[roomId] = {
-          estancia: mejorMatch?.nombre || roomId,
-          tipo: detectarTipoEstanciaPorColor(habitacion.color)
-        };
+      const habitacion = habitacionesOBJ[roomId];
+  
+      if (!habitacion.color || habitacion.paredes === 0 || habitacion.verticesSuelo.length === 0) {
+        console.warn("❌ Ignorando habitación inválida:", roomId, habitacion);
+        continue;
       }
   
-    return resultado;
-  }
+      const mejorMatch = estanciasCSV.reduce((mejor, estancia) => {
+        const diffParedes = Math.abs(estancia.paredes - habitacion.paredes);
+        const diffArea = Math.abs(estancia.area - habitacion.area);
+        const score = diffParedes * 10 + diffArea;
+        return !mejor || score < mejor.score ? { ...estancia, score } : mejor;
+      }, null);
   
-  // Parseador del CSV
-  function parsearCSV(textoCSV) {
-    const lineas = textoCSV.split("\n");
-    const indiceInicio = lineas.findIndex(l => l.startsWith("Room name"));
-    const lineasDatos = [];
-  
-    for (let i = indiceInicio + 1; i < lineas.length; i++) {
-      const l = lineas[i];
-      if (!l.trim() || l.replaceAll(",", "").trim() === "") break;
-      lineasDatos.push(l);
+      resultado[roomId] = {
+        estancia: mejorMatch?.nombre || roomId,
+        tipo: detectarTipoEstanciaPorColor(habitacion.color)
+      };
     }
   
-    return lineasDatos.map(l => {
-      const partes = l.split(",");
-      return {
-        nombre: partes[0].trim(),
-        paredes: parseInt(partes[1]),
-        area: parseFloat(partes[7])
-      };
-    });
+    return resultado;
   }
   
   // Parseador del OBJ
