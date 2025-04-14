@@ -111,6 +111,7 @@ const COLORES_TECHO_ESTANCIA = {
         const diffParedes = Math.abs(estancia.paredes - habitacion.paredes);
         const diffArea = Math.abs(estancia.area - habitacion.area);
         const score = diffParedes * 10 + diffArea;
+        console.log(`Comparando para ${roomId}: entrada ${estancia.nombre} tiene score = ${score} (paredes diff: ${diffParedes}, area diff: ${diffArea})`);
         return (!mejor || score < mejor.score) ? { ...estancia, score } : mejor;
       }, null);
   
