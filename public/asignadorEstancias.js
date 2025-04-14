@@ -128,8 +128,68 @@ const COLORES_TECHO_ESTANCIA = {
     return resultado;
   }
   
-  // Parseador del OBJ: convierte el texto del OBJ en un objeto con las habitaciones
-  // Cada habitación (key = roomId) tendrá: { color, verticesSuelo, area, paredes }
+// ====================
+// Helpers para el cálculo 2D
+// ====================
+
+// Deduplica un array de vértices 3D
+function deduplicarVertices(vertices) {
+    return vertices.filter((p, i, arr) =>
+      i === arr.findIndex(pt => pt[0] === p[0] && pt[1] === p[1] && pt[2] === p[2])
+    );
+  }
+  
+  // Proyecta vértices 3D a 2D tomando solo X y Z.
+  function proyectarXZ(vertices) {
+    return vertices.map(([x, , z]) => [x, z]);
+  }
+  
+  // Implementa el algoritmo de "Monotone Chain" para el Convex Hull 2D.
+  function convexHull2D(puntos) {
+    // Ordenamos por X; si igual, por Y.
+    const pts = [...puntos].sort((a, b) => {
+      return a[0] === b[0] ? a[1] - b[1] : a[0] - b[0];
+    });
+    // Función de producto cruzado.
+    const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    
+    const lower = [];
+    for (let p of pts) {
+      while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
+        lower.pop();
+      }
+      lower.push(p);
+    }
+    
+    const upper = [];
+    for (let i = pts.length - 1; i >= 0; i--) {
+      const p = pts[i];
+      while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
+        upper.pop();
+      }
+      upper.push(p);
+    }
+    
+    // Quitar los últimos puntos duplicados.
+    upper.pop();
+    lower.pop();
+    return lower.concat(upper);
+  }
+  
+  // Calcula el área de un polígono 2D usando la fórmula de Shoelace.
+  function areaShoelace(polygon) {
+    let area = 0;
+    for (let i = 0; i < polygon.length; i++) {
+      const [x1, y1] = polygon[i];
+      const [x2, y2] = polygon[(i + 1) % polygon.length];
+      area += x1 * y2 - x2 * y1;
+    }
+    return Math.abs(area / 2);
+  }
+  
+  // ====================
+  // Función parsearOBJ con mejoras
+  // ====================
   function parsearOBJ(textoOBJ) {
     console.log("parsearOBJ: iniciando parsing del OBJ...");
     const lines = textoOBJ.split("\n");
@@ -140,78 +200,93 @@ const COLORES_TECHO_ESTANCIA = {
     let currentGroup = null;
     let currentMaterial = null;
   
-    // Procesar cada línea del OBJ
+    // Procesamos cada línea del OBJ.
     for (const line of lines) {
+      // Línea de vértices
       if (line.startsWith("v ")) {
         const partes = line.trim().split(/\s+/);
-        // Parsea x, y, z y añade a la lista de vértices
-        const [ , x, y, z ] = partes.map(Number);
+        // Se espera formato: "v x y z"
+        const x = parseFloat(partes[1]);
+        const y = parseFloat(partes[2]);
+        const z = parseFloat(partes[3]);
         vertices.push([x, y, z]);
       }
-      
-      if (line.startsWith("g ")) {
+      // Grupo: define currentGroup y currentRoom
+      else if (line.startsWith("g ")) {
         const partes = line.trim().split(" ");
         currentGroup = partes[1];
-        currentRoom = partes[2];
-        // Asegurarse de inicializar la habitación si aún no está creada
+        currentRoom = partes[2] || null;
+        // Inicializamos la habitación si no existe.
         if (currentRoom && !habitaciones[currentRoom]) {
           habitaciones[currentRoom] = {
             color: null,
             verticesSuelo: [],
-            area: 0,
-            paredes: 0
+            wallGroups: new Set()
           };
         }
       }
-      
-      if (line.startsWith("usemtl ")) {
+      // Asigna el material (color) cuando se está en un grupo "ceiling"
+      else if (line.startsWith("usemtl ")) {
         currentMaterial = line.split(" ")[1].trim().toLowerCase();
-        // Si estamos en un grupo de techo ("ceiling") y se conoce currentRoom, asignar el color
         if (currentGroup === "ceiling" && currentRoom) {
           if (!habitaciones[currentRoom]) {
             habitaciones[currentRoom] = {
               color: null,
               verticesSuelo: [],
-              area: 0,
-              paredes: 0
+              wallGroups: new Set()
             };
           }
           habitaciones[currentRoom].color = currentMaterial;
           console.log(`parsearOBJ: Asignado color '${currentMaterial}' a habitación '${currentRoom}' en grupo 'ceiling'`);
         }
       }
-      
-      if (line.startsWith("f ") && currentRoom) {
+      // Procesa las caras (faces)
+      else if (line.startsWith("f ") && currentRoom) {
+        // Extrae índices. Usa la división por "//" (para ignorar normales)
         const indices = line.slice(2).trim().split(" ").map(f => {
           const idx = f.split("//")[0];
-          return parseInt(idx < 0 ? vertices.length + parseInt(idx) : idx - 1);
+          let index = parseInt(idx);
+          // Ajuste para índices negativos (se cuentan desde el final)
+          if (index < 0) {
+            return vertices.length + index;
+          } else {
+            return index - 1;
+          }
         });
-        
         if (!habitaciones[currentRoom]) {
           habitaciones[currentRoom] = {
             color: null,
             verticesSuelo: [],
-            area: 0,
-            paredes: 0
+            wallGroups: new Set()
           };
         }
-        
         if (currentGroup === "floor") {
-          const puntos = indices.map(i => vertices[i]);
-          habitaciones[currentRoom].verticesSuelo.push(...puntos);
-          console.log(`parsearOBJ: Agregados ${puntos.length} puntos de suelo a '${currentRoom}'`);
+          // Agregar los vértices de la cara del piso
+          const faceVertices = indices.map(i => vertices[i]);
+          habitaciones[currentRoom].verticesSuelo.push(...faceVertices);
+          console.log(`parsearOBJ: Agregados ${faceVertices.length} puntos de suelo a '${currentRoom}'`);
         }
-        
         if (currentGroup && currentGroup.startsWith("wall")) {
-          habitaciones[currentRoom].paredes += 1;
+          // Agrega el grupo de muro al Set (para contar paredes únicas)
+          habitaciones[currentRoom].wallGroups.add(currentGroup);
         }
       }
     }
-    
-    // Calcular área de suelo para cada habitación
+  
+    // Postprocesamiento: para cada habitación, deduplicar vértices, calcular el área y paredes.
     for (const id in habitaciones) {
-      const verts = habitaciones[id].verticesSuelo;
-      habitaciones[id].area = calcularAreaSuelo(verts);
+      // Deduplicar vértices del piso
+      let vs = deduplicarVertices(habitaciones[id].verticesSuelo);
+      // Proyectar a 2D tomando solo X y Z
+      let vs2D = proyectarXZ(vs);
+      // Calcular el Convex Hull de los puntos 2D
+      const hull = convexHull2D(vs2D);
+      // Calcular el área con la fórmula de Shoelace
+      const area = areaShoelace(hull);
+      habitaciones[id].area = area;
+      // Asignar el número de paredes como el tamaño del set wallGroups
+      habitaciones[id].paredes = habitaciones[id].wallGroups ? habitaciones[id].wallGroups.size : 0;
+      console.log(`parsearOBJ: Para habitación ${id}, paredes = ${habitaciones[id].paredes}, área calculada = ${area}`);
     }
     console.log("parsearOBJ: habitaciones finales:", habitaciones);
     return habitaciones;
