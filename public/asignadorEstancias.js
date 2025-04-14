@@ -132,19 +132,19 @@ const COLORES_TECHO_ESTANCIA = {
 // Helpers para el cálculo 2D
 // ============================
 
-// Elimina vértices duplicados (por igualdad exacta de coordenadas)
+// Elimina vértices duplicados (por igualdad exacta)
 function deduplicarVertices(vertices) {
     return vertices.filter((p, i, arr) =>
       i === arr.findIndex(pt => pt[0] === p[0] && pt[1] === p[1] && pt[2] === p[2])
     );
   }
   
-  // Proyecta vértices 3D a 2D usando solo las coordenadas [x, z]
+  // Proyecta vértices 3D a 2D usando solo [x, z]
   function proyectarXZ(vertices) {
     return vertices.map(([x, , z]) => [x, z]);
   }
   
-  // Calcula el área de un polígono 2D con la fórmula de Shoelace
+  // Calcula el área de un polígono 2D usando la fórmula de Shoelace
   function areaShoelace(polygon) {
     let area = 0;
     for (let i = 0; i < polygon.length; i++) {
@@ -156,7 +156,7 @@ function deduplicarVertices(vertices) {
   }
   
   // ============================
-  // Función parsearOBJ con unión de caras (usando martinez)
+  // Función parsearOBJ con unión de caras usando martinez-polygon-clipping
   // ============================
   function parsearOBJ(textoOBJ) {
     console.log("parsearOBJ: iniciando parsing del OBJ...");
@@ -168,7 +168,7 @@ function deduplicarVertices(vertices) {
     let currentGroup = null;
     let currentMaterial = null;
   
-    // Procesamos línea a línea del OBJ
+    // Procesamos línea a línea
     for (const line of lines) {
       if (line.startsWith("v ")) {
         // Línea de vértices: "v x y z"
@@ -178,21 +178,20 @@ function deduplicarVertices(vertices) {
         const z = parseFloat(partes[3]);
         vertices.push([x, y, z]);
       } else if (line.startsWith("g ")) {
-        // Línea de grupo: define currentGroup y currentRoom
+        // Grupo: define currentGroup y currentRoom
         const partes = line.trim().split(" ");
         currentGroup = partes[1];
         currentRoom = partes[2] || null;
         if (currentRoom && !habitaciones[currentRoom]) {
           habitaciones[currentRoom] = {
             color: null,
-            faces: [],         // Guardaremos cada cara "floor" separada
+            faces: [],         // Se guardarán caras del piso (cada una como array de vértices)
             wallGroups: new Set()
           };
         }
       } else if (line.startsWith("usemtl ")) {
-        // Línea de material: obtenemos el color (en minúsculas)
+        // Asigna material (color)
         currentMaterial = line.split(" ")[1].trim().toLowerCase();
-        // Si estamos en grupo "ceiling", asigna el color
         if (currentGroup === "ceiling" && currentRoom) {
           if (!habitaciones[currentRoom]) {
             habitaciones[currentRoom] = {
@@ -205,7 +204,7 @@ function deduplicarVertices(vertices) {
           console.log(`parsearOBJ: Asignado color '${currentMaterial}' a habitación '${currentRoom}' en grupo 'ceiling'`);
         }
       } else if (line.startsWith("f ") && currentRoom) {
-        // Línea de cara (face)
+        // Línea de cara
         const indices = line.slice(2).trim().split(" ").map(f => {
           const idx = f.split("//")[0];
           let index = parseInt(idx);
@@ -219,27 +218,27 @@ function deduplicarVertices(vertices) {
           };
         }
         if (currentGroup === "floor") {
-          // Almacenar cada cara del piso como un polígono independiente
+          // Almacena cada cara del piso individualmente
           const faceVertices = indices.map(i => vertices[i]);
           habitaciones[currentRoom].faces.push(faceVertices);
           console.log(`parsearOBJ: Agregada cara del piso a '${currentRoom}' con ${faceVertices.length} vértices`);
         }
         if (currentGroup && currentGroup.startsWith("wall")) {
-          // Agregar el identificador del grupo de muro a un Set para contar paredes únicas
+          // Usa el nombre del grupo para contar paredes únicas
           habitaciones[currentRoom].wallGroups.add(currentGroup);
         }
       }
     }
   
-    // Postprocesamiento: Para cada habitación, unir las caras floor y calcular el área y paredes.
+    // Postprocesamiento: Para cada habitación, unir las caras floor y calcular área y paredes.
     for (const id in habitaciones) {
       const room = habitaciones[id];
       let allPolygons = [];
-      // Para cada cara floor, deduplicar vértices y proyectar a 2D.
+      // Prepara cada cara floor para la unión
       for (const face of room.faces) {
         const deduped = deduplicarVertices(face);
         let proj = proyectarXZ(deduped);
-        // Aseguramos que el polígono esté cerrado (el primer punto se repite al final)
+        // Asegurar que el polígono esté cerrado (repetir primer punto si no lo está)
         if (proj.length > 0) {
           const first = proj[0];
           const last = proj[proj.length - 1];
@@ -247,29 +246,35 @@ function deduplicarVertices(vertices) {
             proj.push(first);
           }
         }
-        // En formato compatible con martinez: un polígono es un array con un ring
+        // Formato compatible con martinez: un polígono es un array con un ring
         allPolygons.push([proj]);
       }
       let area = 0;
       if (allPolygons.length === 0) {
         area = 0;
       } else {
-        // Unir secuencialmente todos los polígonos usando martinez.union
         let unionPoly = allPolygons[0];
         for (let i = 1; i < allPolygons.length; i++) {
-          unionPoly = martinez.union(unionPoly, allPolygons[i]);
-          if (Array.isArray(unionPoly) && unionPoly.length > 0) {
-            unionPoly = unionPoly[0];
+          const res = martinez.union(unionPoly, allPolygons[i]);
+          if (res && Array.isArray(res) && res.length > 0) {
+            unionPoly = res[0];
+          } else {
+            console.warn(`martinez.union retornó resultado inválido en el índice ${i}, manteniendo unionPoly previa`);
           }
         }
-        // unionPoly es un anillo lineal (array de puntos); calcular el área con la fórmula de Shoelace.
-        area = areaShoelace(unionPoly);
+        if (!unionPoly || !Array.isArray(unionPoly) || unionPoly.length === 0) {
+          console.warn("parsearOBJ: No se obtuvo un polígono de unión válido, se realizará fallback sumando áreas de las caras individuales.");
+          // Fallback: sumar el área de cada cara
+          area = allPolygons.reduce((acc, poly) => acc + areaShoelace(poly[0]), 0);
+        } else {
+          area = areaShoelace(unionPoly);
+        }
       }
       room.area = area;
-      // Asignar paredes como el tamaño del set wallGroups.
       room.paredes = room.wallGroups ? room.wallGroups.size : 0;
       console.log(`parsearOBJ: Para habitación ${id}, paredes = ${room.paredes}, área calculada = ${area}`);
     }
     console.log("parsearOBJ: habitaciones finales:", habitaciones);
     return habitaciones;
-  }  
+  }
+  
