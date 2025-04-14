@@ -39,8 +39,10 @@ const COLORES_TECHO_ESTANCIA = {
     for (const roomId in habitacionesOBJ) {
         const habitacion = habitacionesOBJ[roomId];
       
-        if (!habitacion.color) {
-          console.warn("⚠️ Sin color para habitación:", roomId, habitacion);
+        // ⚠️ Filtrar habitaciones no válidas
+        if (!habitacion.color || habitacion.paredes === 0 || habitacion.verticesSuelo.length === 0) {
+          console.warn("❌ Ignorando habitación inválida:", roomId, habitacion);
+          continue;
         }
       
         const mejorMatch = estanciasCSV.reduce((mejor, estancia) => {
