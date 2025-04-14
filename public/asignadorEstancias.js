@@ -9,9 +9,12 @@ const COLORES_TECHO_ESTANCIA = {
   
   // Función para detectar tipo según color
   function detectarTipoEstanciaPorColor(colorHex) {
+    if (!colorHex || typeof colorHex !== "string") return "Otro";
     colorHex = colorHex.toLowerCase().replace("#", "");
+  
     const coincidencia = Object.entries(COLORES_TECHO_ESTANCIA)
       .find(([tipo, color]) => color === colorHex);
+  
     return coincidencia ? coincidencia[0] : "Otro";
   }
   
@@ -34,22 +37,24 @@ const COLORES_TECHO_ESTANCIA = {
     const resultado = {};
   
     for (const roomId in habitacionesOBJ) {
-      const habitacion = habitacionesOBJ[roomId];
-  
-      // Buscar mejor coincidencia por nº paredes y área
-      const mejorMatch = estanciasCSV.reduce((mejor, estancia) => {
-        const diffParedes = Math.abs(estancia.paredes - habitacion.paredes);
-        const diffArea = Math.abs(estancia.area - habitacion.area);
-        const score = diffParedes * 10 + diffArea; // ponderamos más las paredes
-  
-        return !mejor || score < mejor.score ? { ...estancia, score } : mejor;
-      }, null);
-  
-      resultado[roomId] = {
-        estancia: mejorMatch?.nombre || roomId,
-        tipo: detectarTipoEstanciaPorColor(habitacion.color)
-      };
-    }
+        const habitacion = habitacionesOBJ[roomId];
+      
+        if (!habitacion.color) {
+          console.warn("⚠️ Sin color para habitación:", roomId, habitacion);
+        }
+      
+        const mejorMatch = estanciasCSV.reduce((mejor, estancia) => {
+          const diffParedes = Math.abs(estancia.paredes - habitacion.paredes);
+          const diffArea = Math.abs(estancia.area - habitacion.area);
+          const score = diffParedes * 10 + diffArea;
+          return !mejor || score < mejor.score ? { ...estancia, score } : mejor;
+        }, null);
+      
+        resultado[roomId] = {
+          estancia: mejorMatch?.nombre || roomId,
+          tipo: detectarTipoEstanciaPorColor(habitacion.color)
+        };
+      }
   
     return resultado;
   }
