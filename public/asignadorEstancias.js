@@ -17,6 +17,28 @@ const COLORES_TECHO_ESTANCIA = {
   
     return coincidencia ? coincidencia[0] : "Otro";
   }
+
+  function prepararEstanciasDesdeCSV(textoCSV) {
+    const lineas = textoCSV.split("\n");
+    const i = lineas.findIndex(l => l.startsWith("Room name"));
+    const estancias = [];
+  
+    for (let j = i + 1; j < lineas.length; j++) {
+      const linea = lineas[j];
+      if (!linea.trim() || linea.replaceAll(",", "").trim() === "") break;
+  
+      const partes = linea.split(",");
+      const nombre = partes[0]?.trim();
+      const paredes = parseInt(partes[1]?.trim());
+      const area = parseFloat(partes[7]?.trim());
+  
+      if (!nombre || isNaN(paredes) || isNaN(area)) continue;
+  
+      estancias.push({ nombre, paredes, area });
+    }
+  
+    return estancias;
+  }  
   
   // Calcular área de un polígono plano dado un conjunto de vértices
   function calcularAreaSuelo(vertices) {
