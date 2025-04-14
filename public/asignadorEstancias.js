@@ -100,14 +100,14 @@ const COLORES_TECHO_ESTANCIA = {
     for (const roomId in habitacionesOBJ) {
       const habitacion = habitacionesOBJ[roomId];
   
-      // Filtrar habitaciones que no sean válidas
-      if (!habitacion.color || habitacion.paredes === 0 || habitacion.verticesSuelo.length === 0) {
+      // Filtrar habitaciones inválidas
+      if (!habitacion.color || habitacion.paredes === 0 || !habitacion.faces || habitacion.faces.length === 0) {
         console.warn("detectarEstanciasDesdeOBJ: Ignorando habitación inválida:", roomId, habitacion);
         continue;
       }
   
-      // Buscar el mejor match en estanciasCSV usando diferencias en paredes y área
       const mejorMatch = estanciasCSV.reduce((mejor, estancia) => {
+        if (!estancia) return mejor; // evita que elementos undefined rompan el reduce
         const diffParedes = Math.abs(estancia.paredes - habitacion.paredes);
         const diffArea = Math.abs(estancia.area - habitacion.area);
         const score = diffParedes * 10 + diffArea;
@@ -119,14 +119,14 @@ const COLORES_TECHO_ESTANCIA = {
         console.warn(`detectarEstanciasDesdeOBJ: No se encontró match para ${roomId}`);
       }
       resultado[roomId] = {
-        estancia: mejorMatch?.nombre || roomId,
+        estancia: (mejorMatch && mejorMatch.nombre) ? mejorMatch.nombre : roomId,
         tipo: detectarTipoEstanciaPorColor(habitacion.color)
       };
     }
   
     console.log("detectarEstanciasDesdeOBJ: resultado final:", resultado);
     return resultado;
-  }
+  }  
   
 // ============================
 // Helpers para el cálculo 2D
