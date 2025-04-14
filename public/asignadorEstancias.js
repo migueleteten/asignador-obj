@@ -132,7 +132,7 @@ const COLORES_TECHO_ESTANCIA = {
 // Helpers para el cálculo 2D
 // ============================
 
-// Elimina vértices duplicados (por igualdad exacta)
+// Elimina vértices duplicados (comparación exacta)
 function deduplicarVertices(vertices) {
     return vertices.filter((p, i, arr) =>
       i === arr.findIndex(pt => pt[0] === p[0] && pt[1] === p[1] && pt[2] === p[2])
@@ -144,7 +144,7 @@ function deduplicarVertices(vertices) {
     return vertices.map(([x, , z]) => [x, z]);
   }
   
-  // Calcula el área de un polígono 2D con la fórmula de Shoelace
+  // Calcula el área de un polígono 2D mediante la fórmula de Shoelace
   function areaShoelace(polygon) {
     let area = 0;
     for (let i = 0; i < polygon.length; i++) {
@@ -156,7 +156,7 @@ function deduplicarVertices(vertices) {
   }
   
   // ============================
-  // Función parsearOBJ con unión de caras usando martinez-polygon-clipping
+  // Función parsearOBJ con unión mediante ClipperLib
   // ============================
   function parsearOBJ(textoOBJ) {
     console.log("parsearOBJ: iniciando parsing del OBJ...");
@@ -168,54 +168,52 @@ function deduplicarVertices(vertices) {
     let currentGroup = null;
     let currentMaterial = null;
   
-    // Procesamos línea a línea
+    // Procesamiento línea por línea
     for (const line of lines) {
       if (line.startsWith("v ")) {
-        // Línea de vértices: "v x y z"
         const partes = line.trim().split(/\s+/);
         const x = parseFloat(partes[1]);
         const y = parseFloat(partes[2]);
         const z = parseFloat(partes[3]);
         vertices.push([x, y, z]);
-      } else if (line.startsWith("g ")) {
-        // Grupo: define currentGroup y currentRoom
+      }
+      else if (line.startsWith("g ")) {
         const partes = line.trim().split(" ");
         currentGroup = partes[1];
         currentRoom = partes[2] || null;
         if (currentRoom && !habitaciones[currentRoom]) {
-          habitaciones[currentRoom] = {
-            color: null,
-            faces: [],         // aquí guardaremos cada cara del piso
-            wallGroups: new Set()
+          habitaciones[currentRoom] = { 
+            color: null, 
+            faces: [],        // Aquí almacenaremos cada cara "floor" como un array de vértices
+            wallGroups: new Set() 
           };
         }
-      } else if (line.startsWith("usemtl ")) {
-        // Material: obtenemos el color (minúsculas)
+      }
+      else if (line.startsWith("usemtl ")) {
         currentMaterial = line.split(" ")[1].trim().toLowerCase();
-        // Si estamos en un grupo "ceiling", asignamos el color
         if (currentGroup === "ceiling" && currentRoom) {
           if (!habitaciones[currentRoom]) {
-            habitaciones[currentRoom] = {
-              color: null,
-              faces: [],
-              wallGroups: new Set()
+            habitaciones[currentRoom] = { 
+              color: null, 
+              faces: [], 
+              wallGroups: new Set() 
             };
           }
           habitaciones[currentRoom].color = currentMaterial;
           console.log(`parsearOBJ: Asignado color '${currentMaterial}' a habitación '${currentRoom}' en grupo 'ceiling'`);
         }
-      } else if (line.startsWith("f ") && currentRoom) {
-        // Cara (face)
+      }
+      else if (line.startsWith("f ") && currentRoom) {
         const indices = line.slice(2).trim().split(" ").map(f => {
           const idx = f.split("//")[0];
           let index = parseInt(idx);
           return index < 0 ? vertices.length + index : index - 1;
         });
         if (!habitaciones[currentRoom]) {
-          habitaciones[currentRoom] = {
-            color: null,
-            faces: [],
-            wallGroups: new Set()
+          habitaciones[currentRoom] = { 
+            color: null, 
+            faces: [], 
+            wallGroups: new Set() 
           };
         }
         if (currentGroup === "floor") {
@@ -229,15 +227,13 @@ function deduplicarVertices(vertices) {
       }
     }
   
-    // Postprocesamiento para cada habitación
+    // Postprocesamiento: Para cada habitación, unir las caras floor y calcular área y paredes
     for (const id in habitaciones) {
       const room = habitaciones[id];
       let allPolygons = [];
-      // Para cada cara floor, preparar su polígono 2D
       for (const face of room.faces) {
         const deduped = deduplicarVertices(face);
         let proj = proyectarXZ(deduped);
-        // Cerrar el polígono si no lo está
         if (proj.length > 0) {
           const first = proj[0];
           const last = proj[proj.length - 1];
@@ -245,33 +241,41 @@ function deduplicarVertices(vertices) {
             proj.push(first);
           }
         }
-        // Formato requerido por martinez: un polígono es un array de anillos
-        allPolygons.push([proj]);
+        // Cada cara se guarda como un polígono (array de puntos 2D)
+        allPolygons.push(proj);
       }
       let area = 0;
       if (allPolygons.length === 0) {
         area = 0;
       } else {
-        // Unir secuencialmente todos los polígonos usando martinez.union
-        let unionPoly = allPolygons[0];
-        for (let i = 1; i < allPolygons.length; i++) {
-          let res = martinez.union(unionPoly, allPolygons[i]);
-          if (res && Array.isArray(res) && res.length > 0) {
-            // Si el resultado es un array de polígonos, tomamos el primero
-            unionPoly = res[0];
-          } else {
-            console.warn(`martinez.union retornó resultado inválido en el índice ${i}`);
+        // --- Uso de ClipperLib para unir polígonos ---
+        const scale = 1000; // factor de escala para convertir a enteros
+        // Convertir cada polígono a un Clipper Path (array de objetos {X, Y})
+        const paths = allPolygons.map(poly => 
+          poly.map(pt => ({ X: Math.round(pt[0] * scale), Y: Math.round(pt[1] * scale) }))
+        );
+        // Crear una instancia de Clipper y agregar los paths
+        const clipper = new ClipperLib.Clipper();
+        clipper.AddPaths(paths, ClipperLib.PolyType.ptSubject, true);
+        const solution = new ClipperLib.Paths();
+        clipper.Execute(ClipperLib.ClipType.ctUnion, solution, 
+          ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+        if (solution.length > 0) {
+          // Escoger el polígono con mayor área (puede haber más de uno)
+          let unionPath = solution[0];
+          let maxArea = Math.abs(ClipperLib.Clipper.Area(unionPath));
+          for (let i = 1; i < solution.length; i++) {
+            const a = Math.abs(ClipperLib.Clipper.Area(solution[i]));
+            if (a > maxArea) {
+              unionPath = solution[i];
+              maxArea = a;
+            }
           }
-        }
-        // Asegurarse de que unionPoly está en formato de anillo (array de puntos)
-        if (Array.isArray(unionPoly) && unionPoly.length > 0 && Array.isArray(unionPoly[0])) {
-          unionPoly = unionPoly[0];
-        }
-        if (!unionPoly || !Array.isArray(unionPoly) || unionPoly.length === 0) {
-          console.warn("parsearOBJ: No se obtuvo un polígono de unión válido, se realizará fallback sumando áreas de las caras individuales.");
-          area = allPolygons.reduce((acc, poly) => acc + areaShoelace(poly[0]), 0);
+          // Calcular el área y escalarla de vuelta
+          area = Math.abs(ClipperLib.Clipper.Area(unionPath)) / (scale * scale);
         } else {
-          area = areaShoelace(unionPoly);
+          console.warn("parsearOBJ: Clipper union no devolvió resultados; se usa fallback sumando áreas individuales");
+          area = allPolygons.reduce((acc, poly) => acc + areaShoelace(poly), 0);
         }
       }
       room.area = area;
