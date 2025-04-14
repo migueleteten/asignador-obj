@@ -88,49 +88,58 @@ const COLORES_TECHO_ESTANCIA = {
     let floorVertices = [];
   
     for (const line of lines) {
-      if (line.startsWith("v ")) {
-        const [, x, y, z] = line.trim().split(/\s+/).map(Number);
-        vertices.push([x, y, z]);
-      }
-  
-      if (line.startsWith("g ")) {
-        const partes = line.trim().split(" ");
-        currentGroup = partes[1];
-        currentRoom = partes[2];
-      }
-  
-      if (line.startsWith("usemtl ")) {
-        currentMaterial = line.split(" ")[1].trim().toLowerCase();
-      }
-  
-      if (line.startsWith("f ") && currentRoom) {
-        const indices = line.slice(2).trim().split(" ").map(f => {
-          const idx = f.split("//")[0];
-          return parseInt(idx < 0 ? vertices.length + parseInt(idx) : idx - 1);
-        });
-  
-        if (!habitaciones[currentRoom]) {
-          habitaciones[currentRoom] = {
-            color: null,
-            verticesSuelo: [],
-            area: 0,
-            paredes: 0
-          };
+        if (line.startsWith("v ")) {
+            const [, x, y, z] = line.trim().split(/\s+/).map(Number);
+            vertices.push([x, y, z]);
         }
-  
-        if (currentGroup === "ceiling") {
-          habitaciones[currentRoom].color = currentMaterial;
+        
+        if (line.startsWith("g ")) {
+            const partes = line.trim().split(" ");
+            currentGroup = partes[1];
+            currentRoom = partes[2];
         }
-  
-        if (currentGroup === "floor") {
-          const puntos = indices.map(i => vertices[i]);
-          habitaciones[currentRoom].verticesSuelo.push(...puntos);
+        
+        if (line.startsWith("usemtl ")) {
+            currentMaterial = line.split(" ")[1].trim().toLowerCase();
+        
+            // ⚡️ En ese momento ya sabemos el grupo actual (ceiling)
+            if (currentGroup === "ceiling" && currentRoom) {
+            if (!habitaciones[currentRoom]) {
+                habitaciones[currentRoom] = {
+                color: null,
+                verticesSuelo: [],
+                area: 0,
+                paredes: 0
+                };
+            }
+            habitaciones[currentRoom].color = currentMaterial;
+            }
         }
-  
-        if (currentGroup?.startsWith("wall")) {
-          habitaciones[currentRoom].paredes += 1;
+        
+        if (line.startsWith("f ") && currentRoom) {
+            const indices = line.slice(2).trim().split(" ").map(f => {
+            const idx = f.split("//")[0];
+            return parseInt(idx < 0 ? vertices.length + parseInt(idx) : idx - 1);
+            });
+        
+            if (!habitaciones[currentRoom]) {
+            habitaciones[currentRoom] = {
+                color: null,
+                verticesSuelo: [],
+                area: 0,
+                paredes: 0
+            };
+            }
+        
+            if (currentGroup === "floor") {
+            const puntos = indices.map(i => vertices[i]);
+            habitaciones[currentRoom].verticesSuelo.push(...puntos);
+            }
+        
+            if (currentGroup?.startsWith("wall")) {
+            habitaciones[currentRoom].paredes += 1;
+            }
         }
-      }
     }
   
     for (const id in habitaciones) {
