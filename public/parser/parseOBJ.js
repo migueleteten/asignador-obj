@@ -129,7 +129,7 @@
   
         const sueloNorm = normalize(sueloOrdenado, 300, 300);
         // Paso 1: recoger todos los puntos extremos de paredes
-        const todosLosExtremos = paredes.flatMap(p => [
+        const todosLosExtremos = paredesUnicas.flatMap(p => [
             { x: p.x1, y: p.y1 },
             { x: p.x2, y: p.y2 }
         ]);
@@ -144,6 +144,24 @@
             const p2 = extremosNormalizados[i++];
             return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, wallId: p.wallId };
         });
+
+        // Paso extra: eliminar duplicados exactos y líneas invertidas duplicadas
+        const paredKey = (p) => {
+            const a = `${p.x1.toFixed(3)},${p.y1.toFixed(3)}`;
+            const b = `${p.x2.toFixed(3)},${p.y2.toFixed(3)}`;
+            return a < b ? `${a}_${b}` : `${b}_${a}`;
+        };
+        
+        const paredesUnicas = [];
+        const clavesVistas = new Set();
+        
+        for (const p of paredes) {
+            const clave = paredKey(p);
+            if (!clavesVistas.has(clave)) {
+            clavesVistas.add(clave);
+            paredesUnicas.push(p);
+            }
+        }
   
         window.geometriaPorRoom[room] = {
           suelo: sueloNorm,
