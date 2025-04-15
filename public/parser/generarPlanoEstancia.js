@@ -38,9 +38,15 @@ function generarPlanoEstancia(roomId, divId, callbackAsignar) {
   
     // Dibujar paredes
     if (Array.isArray(geometria.paredes)) {
-      console.log("📐 Dibujando paredes:", geometria.paredes);
-      geometria.paredes.forEach((pared, i) => {
+        geometria.paredes.forEach((pared, i) => {
         const { x1, y1, x2, y2, wallId } = pared;
+    
+        // FILTRO DE LÍNEAS CHUNGAS
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const distancia = Math.sqrt(dx * dx + dy * dy);
+        if (distancia < 1) return; // descarta líneas de menos de 1px
+    
         const linea = document.createElementNS(svgNS, "line");
         linea.setAttribute("x1", x1);
         linea.setAttribute("y1", y1);
@@ -49,12 +55,12 @@ function generarPlanoEstancia(roomId, divId, callbackAsignar) {
         linea.setAttribute("stroke", "#aaa");
         linea.setAttribute("stroke-width", "6");
         linea.setAttribute("data-wall", wallId);
-        linea.setAttribute("class", "pared"); // <<<<<< CLASE PARA CSS
+        linea.setAttribute("class", "pared");
         linea.style.cursor = "pointer";
-  
+    
         linea.addEventListener("click", () => callbackAsignar("wall", wallId));
         svg.appendChild(linea);
-      });
+        });
     }
   
     contenedor.innerHTML = "";
