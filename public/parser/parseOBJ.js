@@ -47,21 +47,30 @@
           }
           currentWall = partes.find(p => p.startsWith("wall")) || null;
         } else if (line.startsWith("f ") && currentRoom) {
-          const indices = line.trim().split(" ").slice(1).map(i => parseInt(i.split("/")[0]) - 1);
-          const puntos = indices.map(i => vertices[i]).filter(Boolean); // filtramos vértices no definidos
-  
-          if (puntos.length >= 2 && currentWall) {
-            geometria[currentRoom].paredes.push({
-              x1: puntos[0].x,
-              y1: puntos[0].y,
-              x2: puntos[1].x,
-              y2: puntos[1].y,
-              wallId: currentWall
-            });
-          } else if (puntos.length >= 3) {
-            geometria[currentRoom].suelo.push(...puntos);
+            const indices = line.split(" ").slice(1).map(i => parseInt(i.split("/")[0]) - 1);
+            const puntos = indices.map(i => vertices[i]);
+          
+            // --- si es una pared ---
+            if (currentWall) {
+              // buscar 2 puntos a cota 0
+              const puntosSuelo = puntos.filter(p => Math.abs(p.y) < 0.01).map(p => ({ x: p.x, y: p.z }));
+          
+              if (puntosSuelo.length >= 2) {
+                geometria[currentRoom].suelo.push(...puntosSuelo);
+          
+                // Solo si son dos puntos planos, guardamos como línea
+                if (puntosSuelo.length === 2) {
+                  geometria[currentRoom].paredes.push({
+                    x1: puntosSuelo[0].x,
+                    y1: puntosSuelo[0].y,
+                    x2: puntosSuelo[1].x,
+                    y2: puntosSuelo[1].y,
+                    wallId: currentWall
+                  });
+                }
+              }
+            }
           }
-        }
       });
   
       window.geometriaPorRoom = {};
