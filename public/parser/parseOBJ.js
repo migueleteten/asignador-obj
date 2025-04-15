@@ -85,6 +85,7 @@
                 console.log("   - Puntos proyectados (XZ):", proyectados);
             
                 // Añadimos líneas visibles si hay exactamente 2 puntos proyectables
+                console.log("💥 Cara proyectada:", proyectados.length, proyectados);
                 if (proyectados.length === 2) {
                 geometria[currentRoom].paredes.push({
                     x1: proyectados[0].x,

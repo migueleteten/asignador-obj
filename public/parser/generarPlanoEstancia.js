@@ -38,6 +38,7 @@ function generarPlanoEstancia(roomId, divId, callbackAsignar) {
   
     // Dibujar paredes
     if (Array.isArray(geometria.paredes)) {
+      console.log("📐 Dibujando paredes:", geometria.paredes);
       geometria.paredes.forEach((pared, i) => {
         const { x1, y1, x2, y2, wallId } = pared;
         const linea = document.createElementNS(svgNS, "line");
