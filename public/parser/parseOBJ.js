@@ -77,12 +77,16 @@
   
       for (let room in geometria) {
         const { paredes, suelo } = geometria[room];
-        const sueloNorm = normalize(suelo, 300, 300);
+        const sueloFiltrado = suelo.filter(p => p && typeof p.x === "number" && typeof p.y === "number");
+        const sueloNorm = normalize(sueloFiltrado, 300, 300);
         const paredesNorm = paredes.map(p => {
-          const p1 = normalize([{ x: p.x1, y: p.y1 }], 300, 300)[0];
-          const p2 = normalize([{ x: p.x2, y: p.y2 }], 300, 300)[0];
+            if (typeof p.x1 !== "number" || typeof p.y1 !== "number" || typeof p.x2 !== "number" || typeof p.y2 !== "number") return null;
+
+            const p1 = normalize([{ x: p.x1, y: p.y1 }], 300, 300)[0];
+            const p2 = normalize([{ x: p.x2, y: p.y2 }], 300, 300)[0];
           return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, wallId: p.wallId };
-        });
+        })
+        .filter(p => p);
   
         window.geometriaPorRoom[room] = {
           suelo: sueloNorm,
