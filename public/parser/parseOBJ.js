@@ -54,39 +54,27 @@
         }
   
         // CARAS
-        else if (line.startsWith("f ")) {
-          if (!currentRoom) {
-            console.warn("⚠️ Saltando cara sin room definido.");
-            return;
-          }
-  
-          const indices = line.split(" ").slice(1).map(i => parseInt(i.split("/")[0]) - 1);
-          const puntos = indices.map(i => vertices[i >= 0 ? i : vertices.length + i]);
-  
-          // LOG DEBUG
-          console.log("▶️ Procesando cara para room:", currentRoom, "wall:", currentWall);
-          console.log("   - Índices:", indices);
-          console.log("   - Puntos:", puntos.map(p => p ? `${p.x},${p.y},${p.z}` : "❌ nulo"));
-  
-          if (currentWall) {
-            const puntosSuelo = puntos.filter(p => p && typeof p.z === "number" && Math.abs(p.z) < 0.01)
-                                      .map(p => ({ x: p.x, y: p.y }));
-  
-            if (puntosSuelo.length >= 2) {
+        else if (line.startsWith("f ") && currentRoom && currentWall) {
+            const indices = line.split(" ").slice(1).map(i => parseInt(i.split("/")[0]) - 1);
+            const puntos = indices.map(i => vertices[i >= 0 ? i : vertices.length + i]);
+          
+            const puntosSuelo = puntos
+              .filter(p => p && typeof p.z === "number" && Math.abs(p.z) < 0.01)
+              .map(p => ({ x: p.x, y: p.y }));
+          
+            if (puntosSuelo.length === 2) {
+              geometria[currentRoom].paredes.push({
+                x1: puntosSuelo[0].x,
+                y1: puntosSuelo[0].y,
+                x2: puntosSuelo[1].x,
+                y2: puntosSuelo[1].y,
+                wallId: currentWall
+              });
+          
+              // También usamos estos puntos para trazar el suelo
               geometria[currentRoom].suelo.push(...puntosSuelo);
-  
-              if (puntosSuelo.length === 2) {
-                geometria[currentRoom].paredes.push({
-                  x1: puntosSuelo[0].x,
-                  y1: puntosSuelo[0].y,
-                  x2: puntosSuelo[1].x,
-                  y2: puntosSuelo[1].y,
-                  wallId: currentWall
-                });
-              }
             }
-          }
-        }
+          }          
       });
   
       // NORMALIZACIÓN FINAL
