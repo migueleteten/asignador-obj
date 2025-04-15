@@ -66,8 +66,8 @@
             // Solo aceptamos caras de paredes con room y wall definidos
             if (currentRoom && currentWall) {
               const puntosSuelo = puntos
-                .filter(p => p && typeof p.z === "number" && Math.abs(p.z) < 0.01)
-                .map(p => ({ x: p.x, y: p.y }));
+                .filter(p => p && typeof p.z === "number" && Math.abs(p.y) < 0.01)
+                .map(p => ({ x: p.x, y: p.z }));
           
               console.log("   - Puntos en cota 0:", puntosSuelo);
           
