@@ -81,6 +81,9 @@
             }
           }
         }
+        console.log("▶️ Procesando cara para room:", currentRoom, "wall:", currentWall);
+        console.log("   - Índices:", indices);
+        console.log("   - Puntos:", puntos.map(p => p ? `${p.x},${p.y},${p.z}` : "❌ nulo"));
       });
      
   
@@ -89,6 +92,9 @@
       for (let room in geometria) {
         const { paredes, suelo } = geometria[room];
         const sueloFiltrado = suelo.filter(p => p && typeof p.x === "number" && typeof p.y === "number");
+
+        console.log(`🧱 Room ${room}: suelo =`, sueloFiltrado);
+        
         const sueloNorm = normalize(sueloFiltrado, 300, 300);
         const paredesNorm = paredes.map(p => {
             if (typeof p.x1 !== "number" || typeof p.y1 !== "number" || typeof p.x2 !== "number" || typeof p.y2 !== "number") return null;
@@ -104,7 +110,7 @@
           paredes: paredesNorm
         };
       }
-  
+      
       console.log("✅ OBJ parseado correctamente. Rooms encontrados:", Object.keys(window.geometriaPorRoom));
     };
   })();
