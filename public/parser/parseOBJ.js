@@ -54,27 +54,39 @@
         }
   
         // CARAS
-        else if (line.startsWith("f ") && currentRoom && currentWall) {
+        else if (line.startsWith("f ")) {
+            console.log("▶️ Procesando cara para room:", currentRoom, "wall:", currentWall);
+          
             const indices = line.split(" ").slice(1).map(i => parseInt(i.split("/")[0]) - 1);
             const puntos = indices.map(i => vertices[i >= 0 ? i : vertices.length + i]);
           
-            const puntosSuelo = puntos
-              .filter(p => p && typeof p.z === "number" && Math.abs(p.z) < 0.01)
-              .map(p => ({ x: p.x, y: p.y }));
+            console.log("   - Índices:", indices);
+            console.log("   - Puntos:", puntos.map(p => p ? `${p.x},${p.y},${p.z}` : "❌ nulo"));
           
-            if (puntosSuelo.length === 2) {
-              geometria[currentRoom].paredes.push({
-                x1: puntosSuelo[0].x,
-                y1: puntosSuelo[0].y,
-                x2: puntosSuelo[1].x,
-                y2: puntosSuelo[1].y,
-                wallId: currentWall
-              });
+            // Solo aceptamos caras de paredes con room y wall definidos
+            if (currentRoom && currentWall) {
+              const puntosSuelo = puntos
+                .filter(p => p && typeof p.z === "number" && Math.abs(p.z) < 0.01)
+                .map(p => ({ x: p.x, y: p.y }));
           
-              // También usamos estos puntos para trazar el suelo
-              geometria[currentRoom].suelo.push(...puntosSuelo);
+              console.log("   - Puntos en cota 0:", puntosSuelo);
+          
+              if (puntosSuelo.length === 2) {
+                geometria[currentRoom].paredes.push({
+                  x1: puntosSuelo[0].x,
+                  y1: puntosSuelo[0].y,
+                  x2: puntosSuelo[1].x,
+                  y2: puntosSuelo[1].y,
+                  wallId: currentWall
+                });
+          
+                geometria[currentRoom].suelo.push(...puntosSuelo); // útil para contorno global
+                console.log("   ✅ Pared registrada en:", currentRoom, "ID:", currentWall);
+              }
+            } else {
+              console.warn("⚠️ Saltando cara sin room o sin wall definido.");
             }
-          }          
+          }                 
       });
   
       // NORMALIZACIÓN FINAL
