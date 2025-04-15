@@ -85,7 +85,14 @@
                 }
             
                 // En cualquier caso, incluimos los puntos en el contorno de suelo
-                geometria[currentRoom].suelo.push(...proyectados);
+                proyectados.forEach(p => {
+                    const yaExiste = geometria[currentRoom].suelo.some(
+                      q => Math.abs(q.x - p.x) < 0.001 && Math.abs(q.y - p.y) < 0.001
+                    );
+                    if (!yaExiste) {
+                      geometria[currentRoom].suelo.push(p);
+                    }
+                  });
             } else {
                 console.warn("⚠️ Saltando cara sin room o sin wall definido.");
             }  
