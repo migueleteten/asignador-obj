@@ -118,58 +118,59 @@
           }                 
       });
   
-      // NORMALIZACIÓN FINAL
-      window.geometriaPorRoom = {};
-      for (let room in geometria) {
-        const { paredes, suelo } = geometria[room];
-        const sueloFiltrado = suelo.filter(p => p && typeof p.x === "number" && typeof p.y === "number");
-        const sueloOrdenado = ordenarPorAngulo(sueloFiltrado);
-  
-        console.log(`🧱 Room ${room}: suelo tiene ${sueloFiltrado.length} puntos válidos`);
-  
-        const sueloNorm = normalize(sueloOrdenado, 300, 300);
-        // Paso 1: recoger todos los puntos extremos de paredes
-        const todosLosExtremos = paredesUnicas.flatMap(p => [
-            { x: p.x1, y: p.y1 },
-            { x: p.x2, y: p.y2 }
-        ]);
-        
-        // Paso 2: normalizar todos de golpe
-        const extremosNormalizados = normalize(todosLosExtremos, 300, 300);
-        
-        // Paso 3: reensamblar
-        let i = 0;
-        const paredesNorm = paredes.map(p => {
-            const p1 = extremosNormalizados[i++];
-            const p2 = extremosNormalizados[i++];
-            return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, wallId: p.wallId };
-        });
+    // NORMALIZACIÓN FINAL
+    window.geometriaPorRoom = {};
 
-        // Paso extra: eliminar duplicados exactos y líneas invertidas duplicadas
-        const paredKey = (p) => {
-            const a = `${p.x1.toFixed(3)},${p.y1.toFixed(3)}`;
-            const b = `${p.x2.toFixed(3)},${p.y2.toFixed(3)}`;
-            return a < b ? `${a}_${b}` : `${b}_${a}`;
-        };
-        
-        const paredesUnicas = [];
-        const clavesVistas = new Set();
-        
-        for (const p of paredes) {
-            const clave = paredKey(p);
-            if (!clavesVistas.has(clave)) {
-            clavesVistas.add(clave);
-            paredesUnicas.push(p);
-            }
+    for (let room in geometria) {
+    const { paredes, suelo } = geometria[room];
+
+    // 1. Filtrar suelo y ordenar
+    const sueloFiltrado = suelo.filter(p => p && typeof p.x === "number" && typeof p.y === "number");
+    const sueloOrdenado = ordenarPorAngulo(sueloFiltrado);
+    const sueloNorm = normalize(sueloOrdenado, 300, 300);
+
+    // 2. Eliminar duplicados e invertidos en paredes
+    const paredKey = (p) => {
+        const a = `${p.x1.toFixed(3)},${p.y1.toFixed(3)}`;
+        const b = `${p.x2.toFixed(3)},${p.y2.toFixed(3)}`;
+        return a < b ? `${a}_${b}` : `${b}_${a}`;
+    };
+
+    const clavesVistas = new Set();
+    const paredesUnicas = [];
+
+    for (const p of paredes) {
+        const clave = paredKey(p);
+        if (!clavesVistas.has(clave)) {
+        clavesVistas.add(clave);
+        paredesUnicas.push(p);
         }
-  
-        window.geometriaPorRoom[room] = {
-          suelo: sueloNorm,
-          paredes: paredesNorm
-        };
-      }
-  
-      console.log("✅ OBJ parseado correctamente. Rooms encontrados:", Object.keys(window.geometriaPorRoom));
+    }
+
+    // 3. Normalizar extremos únicos
+    const todosLosExtremos = paredesUnicas.flatMap(p => [
+        { x: p.x1, y: p.y1 },
+        { x: p.x2, y: p.y2 }
+    ]);
+
+    const extremosNormalizados = normalize(todosLosExtremos, 300, 300);
+
+    // 4. Reensamblar con coordenadas normalizadas
+    let i = 0;
+    const paredesNorm = paredesUnicas.map(p => {
+        const p1 = extremosNormalizados[i++];
+        const p2 = extremosNormalizados[i++];
+        return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, wallId: p.wallId };
+    });
+
+    // 5. Guardar resultado limpio
+    window.geometriaPorRoom[room] = {
+        suelo: sueloNorm,
+        paredes: paredesNorm
+    };
+    }
+
+    console.log("✅ OBJ parseado correctamente. Rooms encontrados:", Object.keys(window.geometriaPorRoom));
     };
   })();
   
