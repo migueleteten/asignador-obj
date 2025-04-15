@@ -78,6 +78,7 @@
           paredes: paredesNorm
         };
       }
+        console.log("✅ OBJ parseado correctamente. Rooms encontrados:", Object.keys(window.geometriaPorRoom));
     };
   })();
   
