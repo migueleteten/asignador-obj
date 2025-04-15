@@ -48,7 +48,7 @@
           currentWall = partes.find(p => p.startsWith("wall")) || null;
         } else if (line.startsWith("f ") && currentRoom) {
             const indices = line.split(" ").slice(1).map(i => parseInt(i.split("/")[0]) - 1);
-            const puntos = indices.map(i => vertices[i]);
+            const puntos = indices.map(i => vertices[i >= 0 ? i : vertices.length + i]);
           
             // --- si es una pared ---
             if (currentWall) {
