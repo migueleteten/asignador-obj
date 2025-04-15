@@ -19,7 +19,7 @@
       const scale = Math.min(scaleX, scaleY);
       return vertices.map(({ x, y }) => ({
         x: (x - minX) * scale + padding,
-        y: height - ((y - minY) * scale + padding) // <<<<<< AQUÍ SE HACE LA INVERSIÓN
+        y: (y - minY) * scale + padding // <<<<<< AQUÍ SE HACE LA INVERSIÓN
       }));
     }
   
