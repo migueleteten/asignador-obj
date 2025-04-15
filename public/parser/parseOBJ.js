@@ -19,7 +19,7 @@
       const scale = Math.min(scaleX, scaleY);
       return vertices.map(({ x, y }) => ({
         x: (x - minX) * scale + padding,
-        y: height - ((y - minY) * scale + padding)
+        y: height - ((y - minY) * scale + padding) // <<<<<< AQUÍ SE HACE LA INVERSIÓN
       }));
     }
   
@@ -65,27 +65,30 @@
           
             // Solo aceptamos caras de paredes con room y wall definidos
             if (currentRoom && currentWall) {
-              const puntosSuelo = puntos
-                .filter(p => p && typeof p.z === "number" && Math.abs(p.y) < 0.01)
+                const proyectados = puntos
+                .filter(p => p && typeof p.x === "number" && typeof p.z === "number")
                 .map(p => ({ x: p.x, y: p.z }));
-          
-              console.log("   - Puntos en cota 0:", puntosSuelo);
-          
-              if (puntosSuelo.length === 2) {
+            
+                console.log("   - Puntos proyectados (XZ):", proyectados);
+            
+                // Añadimos líneas visibles si hay exactamente 2 puntos proyectables
+                if (proyectados.length === 2) {
                 geometria[currentRoom].paredes.push({
-                  x1: puntosSuelo[0].x,
-                  y1: puntosSuelo[0].y,
-                  x2: puntosSuelo[1].x,
-                  y2: puntosSuelo[1].y,
-                  wallId: currentWall
+                    x1: proyectados[0].x,
+                    y1: proyectados[0].y,
+                    x2: proyectados[1].x,
+                    y2: proyectados[1].y,
+                    wallId: currentWall
                 });
-          
-                geometria[currentRoom].suelo.push(...puntosSuelo); // útil para contorno global
+            
                 console.log("   ✅ Pared registrada en:", currentRoom, "ID:", currentWall);
-              }
+                }
+            
+                // En cualquier caso, incluimos los puntos en el contorno de suelo
+                geometria[currentRoom].suelo.push(...proyectados);
             } else {
-              console.warn("⚠️ Saltando cara sin room o sin wall definido.");
-            }
+                console.warn("⚠️ Saltando cara sin room o sin wall definido.");
+            }  
           }                 
       });
   
