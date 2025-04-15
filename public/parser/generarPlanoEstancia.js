@@ -1,6 +1,6 @@
 // Este archivo depende de que parseOBJ.js se haya ejecutado antes
 
-function generarPlanoEstancia(roomId, contenedor, callbackAsignar) {
+function generarPlanoEstancia(roomId, divId, callbackAsignar) {
     console.log("🧩 Generando plano para roomId:", roomId, "tipo:", tipo, "div destino:", divId);
     console.log("📦 Geometría disponible:", window.geometriaPorRoom);
 
