@@ -33,34 +33,56 @@
       let currentWall = null;
   
       lines.forEach(line => {
+        // 🧱 Vértices
         if (line.startsWith("v ")) {
-            const [, x, y, z] = line.trim().split(/\s+/).map(Number);
-            vertices.push({ x, y, z }); // ahora con Z
-          } else if (line.startsWith("f ") && currentRoom) {
-            const indices = line.split(" ").slice(1).map(i => parseInt(i.split("/")[0]) - 1);
-            const puntos = indices.map(i => vertices[i >= 0 ? i : vertices.length + i]);
-          
-            // --- si es una pared ---
-            if (currentWall) {
-              // buscar 2 puntos a cota 0 (Z)
-              const puntosSuelo = puntos.filter(p => p && Math.abs(p.z) < 0.01).map(p => ({ x: p.x, y: p.y }));
-          
-              if (puntosSuelo.length >= 2) {
-                geometria[currentRoom].suelo.push(...puntosSuelo);
-          
-                if (puntosSuelo.length === 2) {
-                  geometria[currentRoom].paredes.push({
-                    x1: puntosSuelo[0].x,
-                    y1: puntosSuelo[0].y,
-                    x2: puntosSuelo[1].x,
-                    y2: puntosSuelo[1].y,
-                    wallId: currentWall
-                  });
-                }
+          const [, x, y, z] = line.trim().split(/\s+/).map(Number);
+          vertices.push({ x, y, z }); // Guardamos también Z ahora
+        }
+      
+        // 🏷️ Agrupaciones (g wallXX roomXX)
+        else if (line.startsWith("g ")) {
+          const partes = line.trim().split(/\s+/);
+      
+          const room = partes.find(p => /^room\d+$/i.test(p));
+          if (room) {
+            currentRoom = room.toLowerCase();
+            if (!geometria[currentRoom]) {
+              geometria[currentRoom] = { paredes: [], suelo: [] };
+            }
+          } else {
+            currentRoom = null;
+          }
+      
+          const wall = partes.find(p => /^wall\d+$/i.test(p));
+          currentWall = wall ? wall.toLowerCase() : null;
+        }
+      
+        // 🧩 Caras
+        else if (line.startsWith("f ") && currentRoom) {
+          const indices = line.split(" ").slice(1).map(i => parseInt(i.split("/")[0]) - 1);
+          const puntos = indices.map(i => vertices[i >= 0 ? i : vertices.length + i]);
+      
+          if (currentWall) {
+            const puntosSuelo = puntos.filter(p => p && typeof p.z === "number" && Math.abs(p.z) < 0.01)
+                                      .map(p => ({ x: p.x, y: p.y }));
+      
+            if (puntosSuelo.length >= 2) {
+              geometria[currentRoom].suelo.push(...puntosSuelo);
+      
+              if (puntosSuelo.length === 2) {
+                geometria[currentRoom].paredes.push({
+                  x1: puntosSuelo[0].x,
+                  y1: puntosSuelo[0].y,
+                  x2: puntosSuelo[1].x,
+                  y2: puntosSuelo[1].y,
+                  wallId: currentWall
+                });
               }
             }
           }
+        }
       });
+     
   
       window.geometriaPorRoom = {};
   
