@@ -34,31 +34,20 @@
   
       lines.forEach(line => {
         if (line.startsWith("v ")) {
-          const [, x, y, z] = line.trim().split(/\s+/).map(Number);
-          vertices.push({ x, y }); // solo usamos x e y
-        } else if (line.startsWith("g ")) {
-          const partes = line.trim().split(" ");
-          const posibleRoom = partes.find(p => p.startsWith("room"));
-          if (posibleRoom) {
-            currentRoom = posibleRoom;
-            if (!geometria[currentRoom]) {
-              geometria[currentRoom] = { paredes: [], suelo: [] };
-            }
-          }
-          currentWall = partes.find(p => p.startsWith("wall")) || null;
-        } else if (line.startsWith("f ") && currentRoom) {
+            const [, x, y, z] = line.trim().split(/\s+/).map(Number);
+            vertices.push({ x, y, z }); // ahora con Z
+          } else if (line.startsWith("f ") && currentRoom) {
             const indices = line.split(" ").slice(1).map(i => parseInt(i.split("/")[0]) - 1);
             const puntos = indices.map(i => vertices[i >= 0 ? i : vertices.length + i]);
           
             // --- si es una pared ---
             if (currentWall) {
-              // buscar 2 puntos a cota 0
-              const puntosSuelo = puntos.filter(p => Math.abs(p.y) < 0.01).map(p => ({ x: p.x, y: p.z }));
+              // buscar 2 puntos a cota 0 (Z)
+              const puntosSuelo = puntos.filter(p => p && Math.abs(p.z) < 0.01).map(p => ({ x: p.x, y: p.y }));
           
               if (puntosSuelo.length >= 2) {
                 geometria[currentRoom].suelo.push(...puntosSuelo);
           
-                // Solo si son dos puntos planos, guardamos como línea
                 if (puntosSuelo.length === 2) {
                   geometria[currentRoom].paredes.push({
                     x1: puntosSuelo[0].x,
