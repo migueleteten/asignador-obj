@@ -12,7 +12,7 @@
       return { minX, minY, maxX, maxY };
     }
   
-    function normalize(vertices, width, height, padding = 20) {
+    function normalize(vertices, width, height, padding = 5) {
       const { minX, minY, maxX, maxY } = getBounds(vertices);
       const scaleX = (width - 2 * padding) / (maxX - minX || 1);
       const scaleY = (height - 2 * padding) / (maxY - minY || 1);

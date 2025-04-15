@@ -1,8 +1,18 @@
 // Este archivo depende de que parseOBJ.js se haya ejecutado antes
 
 function generarPlanoEstancia(roomId, contenedor, callbackAsignar) {
+    console.log("🧩 Generando plano para roomId:", roomId, "tipo:", tipo, "div destino:", divId);
+    console.log("📦 Geometría disponible:", window.geometriaPorRoom);
+
+    const contenedor = document.getElementById(divId);
+    if (!contenedor) {
+      console.warn("❌ No se encontró el contenedor con id:", divId);
+      return;
+    }
+
     const geometria = window.geometriaPorRoom?.[roomId];
     if (!geometria) {
+      console.warn("⚠️ No hay geometría para", roomId, "en geometriaPorRoom");
       contenedor.innerHTML = "<p style='color: #999;'>No hay plano para esta estancia.</p>";
       return;
     }
@@ -36,8 +46,9 @@ function generarPlanoEstancia(roomId, contenedor, callbackAsignar) {
         linea.setAttribute("x2", x2);
         linea.setAttribute("y2", y2);
         linea.setAttribute("stroke", "#aaa");
-        linea.setAttribute("stroke-width", "4");
+        linea.setAttribute("stroke-width", "6");
         linea.setAttribute("data-wall", wallId);
+        linea.setAttribute("class", "pared"); // <<<<<< CLASE PARA CSS
         linea.style.cursor = "pointer";
   
         linea.addEventListener("click", () => callbackAsignar("wall", wallId));
