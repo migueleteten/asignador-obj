@@ -128,16 +128,22 @@
         console.log(`🧱 Room ${room}: suelo tiene ${sueloFiltrado.length} puntos válidos`);
   
         const sueloNorm = normalize(sueloOrdenado, 300, 300);
+        // Paso 1: recoger todos los puntos extremos de paredes
+        const todosLosExtremos = paredes.flatMap(p => [
+            { x: p.x1, y: p.y1 },
+            { x: p.x2, y: p.y2 }
+        ]);
+        
+        // Paso 2: normalizar todos de golpe
+        const extremosNormalizados = normalize(todosLosExtremos, 300, 300);
+        
+        // Paso 3: reensamblar
+        let i = 0;
         const paredesNorm = paredes.map(p => {
-          if (
-            typeof p.x1 !== "number" || typeof p.y1 !== "number" ||
-            typeof p.x2 !== "number" || typeof p.y2 !== "number"
-          ) return null;
-  
-          const p1 = normalize([{ x: p.x1, y: p.y1 }], 300, 300)[0];
-          const p2 = normalize([{ x: p.x2, y: p.y2 }], 300, 300)[0];
-          return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, wallId: p.wallId };
-        }).filter(Boolean);
+            const p1 = extremosNormalizados[i++];
+            const p2 = extremosNormalizados[i++];
+            return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, wallId: p.wallId };
+        });
   
         window.geometriaPorRoom[room] = {
           suelo: sueloNorm,
