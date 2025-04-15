@@ -22,6 +22,19 @@
         y: (y - minY) * scale + padding // <<<<<< AQUÍ SE HACE LA INVERSIÓN
       }));
     }
+
+    function ordenarPorAngulo(puntos) {
+        if (!puntos.length) return puntos;
+      
+        const cx = puntos.reduce((sum, p) => sum + p.x, 0) / puntos.length;
+        const cy = puntos.reduce((sum, p) => sum + p.y, 0) / puntos.length;
+      
+        return puntos.slice().sort((a, b) => {
+          const angA = Math.atan2(a.y - cy, a.x - cx);
+          const angB = Math.atan2(b.y - cy, b.x - cx);
+          return angA - angB;
+        });
+      }
   
     window.parseOBJ = function (textoOBJ) {
       console.log("📄 .OBJ recibido:", textoOBJ.slice(0, 300));
@@ -104,10 +117,11 @@
       for (let room in geometria) {
         const { paredes, suelo } = geometria[room];
         const sueloFiltrado = suelo.filter(p => p && typeof p.x === "number" && typeof p.y === "number");
+        const sueloOrdenado = ordenarPorAngulo(sueloFiltrado);
   
         console.log(`🧱 Room ${room}: suelo tiene ${sueloFiltrado.length} puntos válidos`);
   
-        const sueloNorm = normalize(sueloFiltrado, 300, 300);
+        const sueloNorm = normalize(sueloOrdenado, 300, 300);
         const paredesNorm = paredes.map(p => {
           if (
             typeof p.x1 !== "number" || typeof p.y1 !== "number" ||
