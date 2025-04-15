@@ -86,17 +86,22 @@
             
                 // Añadimos líneas visibles si hay exactamente 2 puntos proyectables
                 console.log("💥 Cara proyectada:", proyectados.length, proyectados);
-                if (proyectados.length === 2) {
-                geometria[currentRoom].paredes.push({
-                    x1: proyectados[0].x,
-                    y1: proyectados[0].y,
-                    x2: proyectados[1].x,
-                    y2: proyectados[1].y,
-                    wallId: currentWall
-                });
-            
-                console.log("   ✅ Pared registrada en:", currentRoom, "ID:", currentWall);
-                }
+                if (proyectados.length >= 2) {
+                    for (let i = 0; i < proyectados.length; i++) {
+                      const a = proyectados[i];
+                      const b = proyectados[(i + 1) % proyectados.length]; // cierra el ciclo
+                      if (Math.hypot(a.x - b.x, a.y - b.y) > 0.1) {
+                        geometria[currentRoom].paredes.push({
+                            x1: a.x,
+                            y1: a.y,
+                            x2: b.x,
+                            y2: b.y,
+                            wallId: currentWall
+                        });
+                      }
+                    }
+                    console.log(`✅ ${proyectados.length} segmentos añadidos a room ${currentRoom}`);
+                  }
             
                 // En cualquier caso, incluimos los puntos en el contorno de suelo
                 proyectados.forEach(p => {
