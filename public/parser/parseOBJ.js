@@ -36,12 +36,21 @@
         if (line.startsWith("v ")) {
           const [, x, y, z] = line.split(/\s+/).map(Number);
           vertices.push({ x, y }); // solo XY
-        } else if (line.startsWith("g room")) {
-          currentRoom = line.split(" ")[1];
-          if (!geometria[currentRoom]) {
-            geometria[currentRoom] = { paredes: [], suelo: [] };
-          }
-        } else if (line.startsWith("g wall")) {
+        } else if (line.startsWith("g ")) {
+            const partes = line.split(" ");
+            const posibleRoom = partes.find(p => p.startsWith("room"));
+            if (posibleRoom) {
+              currentRoom = posibleRoom;
+              if (!geometria[currentRoom]) {
+                geometria[currentRoom] = { paredes: [], suelo: [] };
+              }
+            }
+            if (line.includes("wall")) {
+              currentWall = partes.find(p => p.startsWith("wall"));
+            } else {
+              currentWall = null;
+            }
+          } else if (line.startsWith("g wall")) {
           currentWall = line.split(" ")[1];
         } else if (line.startsWith("usemtl ")) {
           // ignorar materiales
