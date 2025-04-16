@@ -37,37 +37,27 @@
       return angA - angB;
     });
   }
-
+  
   window.parseOBJ = function (textoOBJ) {
     console.log("📄 .OBJ recibido:", textoOBJ.slice(0, 300));
 
     const lines = textoOBJ.split("\n");
     const vertices = [];
     const ceilingPorRoom = {};
-    const verticesPorPunto = {}; // para rastrear qué wall contiene cada vértice
+    const verticesPorPunto = {};
     let currentRoom = null;
     let currentWall = null;
     let parsingCeiling = false;
 
     lines.forEach(line => {
       if (line.startsWith("g ")) {
-        const partes = line.trim().split(/\s+/);
-        const room = partes.find(p => /^room\d+$/i.test(p));
-        currentRoom = room ? room.toLowerCase() : null;
-        const wall = partes.find(p => /^wall\d+$/i.test(p));
-        const isCeiling = partes.includes("ceiling");
-
-        if (currentRoom) {
-          parsingCeiling = isCeiling;
-          if (parsingCeiling && !ceilingPorRoom[currentRoom]) ceilingPorRoom[currentRoom] = [];
-          currentWall = wall ? wall.toLowerCase() : null;
-        }
-      }
-      else if (line.startsWith("v ")) {
+        // ... (lógica para g)
+      } else if (line.startsWith("v ")) {
         const [, x, y, z] = line.trim().split(/\s+/).map(Number);
         const vertice = { x: +x.toFixed(5), y: +y.toFixed(5), z: +z.toFixed(5) };
+        vertices.push(vertice);
         if (parsingCeiling && currentRoom) {
-          ceilingPorRoom[currentRoom].push(vertice);
+          // ... (lógica para ceiling)
         } else if (currentRoom && currentWall) {
           const key = `${vertice.x},${vertice.z}`;
           if (!verticesPorPunto[key]) verticesPorPunto[key] = new Set();
@@ -78,12 +68,14 @@
 
     window.geometriaPorRoom = {};
 
-    // Imprimimos verticesPorPunto
-    console.log("\n--- verticesPorPunto ---");
-    console.log(verticesPorPunto);
+    // Verificar la población de verticesPorPunto
+    console.log("\n--- verticesPorPunto (algunos ejemplos) ---");
+    let keys = Object.keys(verticesPorPunto);
+    for (let i = 0; i < Math.min(5, keys.length); i++) {
+      let key = keys[i];
+      console.log(`${key}:`, Array.from(verticesPorPunto[key])); // Convertir Set a Array para imprimir
+    }
 
-    // Imprimimos algunos vértices originales
-    console.log("\n--- Primeros 10 Vértices Originales ---");
     for (let room in ceilingPorRoom) {
       const verticesCrudos = ceilingPorRoom[room];
       const puntosXZ = verticesCrudos.map(v => ({ x: +(-v.x).toFixed(5), y: +(-v.z).toFixed(5) }));
@@ -105,63 +97,57 @@
         tramos.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
       }
 
-      function paredesDePunto(punto, verticesPorPunto, tramo) {
-        console.log(`\n--- paredesDePunto para punto: (${punto.x}, ${punto.y}) ---`);
-        const walls = new Set();
-        let found = false;
-      
-        const puntoKey = `${punto.x.toFixed(5)},${punto.y.toFixed(5)}`; // Creamos la clave del punto
-      
-        if (verticesPorPunto[puntoKey]) { // Buscamos la clave directamente
-          verticesPorPunto[puntoKey].forEach(wall => {
-            console.log(`    Encontrado wall: ${wall}`);
-            walls.add(wall);
-          });
-          found = true;
-        }
-      
-        if (!found) {
-          console.log("  No se encontraron paredes para este punto.");
-          if (tramo) {
-            console.log(`  Tramo: (${tramo.x1}, ${tramo.y1}) - (${tramo.x2}, ${tramo.y2})`);
-          }
-        }
-      
-        const wallsArray = Array.from(walls);
-        console.log(`  Paredes encontradas: ${wallsArray}`);
-        return wallsArray;
-      }
-        
-        const paredes = tramos.map(tramo => {
-          const wallsP1 = paredesDePunto({ x: tramo.x1, y: tramo.y1 }, vertices);
-          const wallsP2 = paredesDePunto({ x: tramo.x2, y: tramo.y2 }, vertices);
-          const comunes = wallsP1.filter(w => wallsP2.includes(w));
-          return { ...tramo, wallId: comunes[0] || null };
-        });      
+      const paredes = tramos.map(tramo => {
+        // Imprimir los tramos
+        console.log(`\n--- Tramo: (${tramo.x1}, ${tramo.y1}) - (${tramo.x2}, ${tramo.y2}) ---`);
+
+        const wallsP1 = paredesDePunto({ x: tramo.x1, y: tramo.y1 }, verticesPorPunto, tramo);
+        const wallsP2 = paredesDePunto({ x: tramo.x2, y: tramo.y2 }, verticesPorPunto, tramo);
+        const comunes = wallsP1.filter(w => wallsP2.includes(w));
+        return { ...tramo, wallId: comunes[0] || null };
+      });
 
       const sueloNorm = normalize(ordenados, 500, 500);
-      const extremosNorm = normalize(paredes.flatMap(p => [
-        { x: p.x1, y: p.y1 },
-        { x: p.x2, y: p.y2 }
-      ]), 500, 500);
+      const extremosNorm = normalize(paredes.flatMap(p => [{ x: p.x1, y: p.y1 }, { x: p.x2, y: p.y2 }]), 500, 500);
 
       let i = 0;
       const paredesNorm = paredes.map(p => {
         const p1 = extremosNorm[i++];
         const p2 = extremosNorm[i++];
-        return {
-          x1: p1.x, y1: p1.y,
-          x2: p2.x, y2: p2.y,
-          wallId: p.wallId
-        };
+        return { x1: p1.x, y1: p1.y, x2: p2.y, wallId: p.wallId };
       });
 
-      window.geometriaPorRoom[room] = {
-        suelo: sueloNorm,
-        paredes: paredesNorm
-      };
+      window.geometriaPorRoom[room] = { suelo: sueloNorm, paredes: paredesNorm };
     }
 
     console.log("✅ OBJ parseado y ceiling interpretado. Rooms:", Object.keys(window.geometriaPorRoom));
   };
+
+  function paredesDePunto(punto, verticesPorPunto, tramo) {
+    console.log(`\n--- paredesDePunto para punto: (${punto.x}, ${punto.y}) ---`);
+    const walls = new Set();
+    let found = false;
+
+    const puntoKey = `${punto.x.toFixed(5)},${punto.y.toFixed(5)}`;
+    console.log(`  Buscando clave: ${puntoKey}`); // Imprimir puntoKey
+
+    if (verticesPorPunto[puntoKey]) {
+      verticesPorPunto[puntoKey].forEach(wall => {
+        console.log(`    Encontrado wall: ${wall}`);
+        walls.add(wall);
+      });
+      found = true;
+    }
+
+    if (!found) {
+      console.log("  No se encontraron paredes para este punto.");
+      if (tramo) {
+        console.log(`  Tramo: (${tramo.x1}, ${tramo.y1}) - (${tramo.x2}, ${tramo.y2})`);
+      }
+    }
+
+    const wallsArray = Array.from(walls);
+    console.log(`  Paredes encontradas: ${wallsArray}`);
+    return wallsArray;
+  }
 })();
