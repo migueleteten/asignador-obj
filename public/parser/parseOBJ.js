@@ -23,7 +23,7 @@
   
     return vertices.map(({ x, y }) => ({
       x: (x - minX) * scale + offsetX,
-      y: height - ((y - minY) * scale + offsetY)  // inversión + centrado
+      y: (y - minY) * scale + offsetY  // inversión + centrado
     }));
   }  
 
@@ -96,15 +96,7 @@
       for (let i = 0; i < ordenados.length; i++) {
         const a = ordenados[i];
         const b = ordenados[(i + 1) % ordenados.length];
-        const claveA = `${a.x},${a.y}`;
-        const claveB = `${b.x},${b.y}`;
-        const wallsA = verticesPorPunto[claveA] || new Set();
-        const wallsB = verticesPorPunto[claveB] || new Set();
-        const comunes = [...wallsA].filter(w => wallsB.has(w));
-        tramos.push({
-          x1: a.x, y1: a.y, x2: b.x, y2: b.y,
-          wallId: comunes.length === 1 ? comunes[0] : null
-        });
+        tramos.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
       }
 
       function paredesDePunto(punto, vertices) {
