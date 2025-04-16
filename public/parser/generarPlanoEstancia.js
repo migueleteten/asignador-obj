@@ -22,7 +22,6 @@ function generarPlanoEstancia(roomId, divId, callbackAsignar) {
   svg.setAttribute("viewBox", "0 0 500 500"); // Coincide con normalize
   svg.setAttribute("width", "100%");
   // Ajustar altura si es necesario, o usar aspect ratio con viewBox
-  svg.setAttribute("height", "auto");
   svg.setAttribute("preserveAspectRatio", "xMidYMid meet"); // Mejor para responsividad
   svg.style.maxWidth = "500px"; // Limitar tamaño máximo si se desea
   svg.style.display = "block"; // Evitar espacio extra debajo del SVG
@@ -37,7 +36,7 @@ function generarPlanoEstancia(roomId, divId, callbackAsignar) {
       suelo.setAttribute("points", puntos);
       suelo.setAttribute("fill", "#f0f0f0"); // Un gris más claro
       suelo.setAttribute("stroke", "#cccccc"); // Borde más sutil
-      suelo.setAttribute("stroke-width", "1"); // Ancho de borde más fino
+      suelo.setAttribute("stroke-width", "15"); // Ancho de borde más fino
       suelo.setAttribute("class", "suelo");
       suelo.style.cursor = "pointer";
       suelo.addEventListener("click", () => {
@@ -77,7 +76,7 @@ function generarPlanoEstancia(roomId, divId, callbackAsignar) {
           linea.setAttribute("y2", y2.toFixed(2)); // Usar y2
 
           linea.setAttribute("stroke", "#888888"); // Un gris más oscuro para las paredes
-          linea.setAttribute("stroke-width", "3"); // Hacerlas un poco más gruesas
+          linea.setAttribute("stroke-width", "15"); // Hacerlas un poco más gruesas
           linea.setAttribute("stroke-linecap", "round"); // Extremos redondeados
           if (wallId) { // Solo añadir data-wall si existe
                linea.setAttribute("data-wall", wallId);
