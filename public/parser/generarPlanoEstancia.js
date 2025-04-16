@@ -162,120 +162,153 @@ document.addEventListener('keydown', (event) => {
 
 // --- 5. Nueva Función: `realizarAsignacion` (Llamada por clicks en SVG) ---
 
-function realizarAsignacion(tipoSuperficie, idSuperficie, elementoClicado) {
+// --- DENTRO de generarPlanoEstancia.js ---
+
+async function realizarAsignacion(tipoSuperficie, idSuperficie, elementoClicado) {
+  // --- Obtener datos esenciales ---
   const expedienteActual = sessionStorage.getItem("expedienteSeleccionado");
   if (!window.productoEnAsignacion || !window.botonOrigenAsignacion || !expedienteActual) {
-      console.error("Estado inválido para realizar asignación.", window.productoEnAsignacion, window.botonOrigenAsignacion, window.expedienteActual);
-      cancelarAsignacion();
+      console.error("Estado inválido (falta producto, botón o expediente).", window.productoEnAsignacion, window.botonOrigenAsignacion, expedienteActual);
+      cancelarAsignacion(); // Limpia estado (productoEnAsignacion, etc.)
       return;
   }
 
-  const { codigo, color } = window.productoEnAsignacion;
+  const { codigo: codigoProducto, color } = window.productoEnAsignacion;
   const botonOriginal = window.botonOrigenAsignacion;
 
-  // Obtener roomId del SVG padre del elemento clicado
   const svgElement = elementoClicado.closest('svg[data-room-id]');
   if (!svgElement) {
-       console.error("No se pudo encontrar el SVG padre con data-room-id.");
-       cancelarAsignacion();
-       return;
+      console.error("No se pudo encontrar el SVG padre.");
+      cancelarAsignacion();
+      return;
   }
   const roomId = svgElement.getAttribute('data-room-id');
 
-  console.log(`Intentando asignar ${codigo} a ${tipoSuperficie} ${idSuperficie} en room ${roomId} para expediente ${expedienteActual}`);
+  // --- Obtener datos geométricos necesarios para el NUEVO detalle ---
+  // (Estas funciones DEBEN estar implementadas y funcionar correctamente)
+  const alturaDefault = getRoomHeight(roomId) || 2.5; // Obtener altura (o fallback)
+  const longitudObtenida = getSegmentLength(idSuperficie, roomId) || 0; // Obtener longitud (o fallback)
 
-  // --- Validar que no exista ya esta asignación EXACTA (opcional, backend también valida) ---
-  const selectorExistente = `[data-asignacion-codigo="${codigo}"][data-asignacion-id="${idSuperficie}"]`;
-  if (svgElement.querySelector(selectorExistente)) {
-       console.warn(`El producto ${codigo} ya está asignado visualmente a ${idSuperficie} en este plano.`);
-       alert(`Este producto ya está asignado a esta superficie.`);
-       cancelarAsignacion();
-       return;
-   }
+  console.log(`Asignando ${codigoProducto} a ${idSuperficie} (${tipoSuperficie}) en ${roomId} [Exp: ${expedienteActual}]`);
+  console.log(` - Altura default: ${alturaDefault}, Longitud superficie: ${longitudObtenida}`);
 
+  // Mostrar feedback visual inmediato (opcional)
+  if (elementoClicado) elementoClicado.style.opacity = '0.5'; // Atenuar pared/suelo clicado
 
-  // 1. Dibujar Indicador Visual
-  let elementoVisualAsignacion;
-  if (tipoSuperficie === 'wall') {
-      // Necesitamos la línea original de la pared, no solo el elemento clicado (que podría ser el indicador si hubiera error)
-      const lineaOriginal = svgElement.querySelector(`line.pared[data-wall="${idSuperficie}"]`);
-      if (!lineaOriginal) {
-          console.error(`No se encontró la línea original de la pared con wallId: ${idSuperficie}`);
-          cancelarAsignacion();
-          return;
-      }
-      elementoVisualAsignacion = dibujarIndicadorPared(lineaOriginal, codigo, idSuperficie, color);
-  } else if (tipoSuperficie === 'floor') {
-      // Necesitamos el polígono original del suelo
-      const poligonoOriginal = svgElement.querySelector('polygon.suelo');
-       if (!poligonoOriginal) {
-          console.error(`No se encontró el polígono original del suelo.`);
-          cancelarAsignacion();
-          return;
-      }
-      elementoVisualAsignacion = dibujarIndicadorSuelo(poligonoOriginal, codigo, color);
-  }
-
-  if (!elementoVisualAsignacion) {
-      console.error("No se pudo crear el elemento visual de asignación.");
-      cancelarAsignacion();
-      return;
-  }
-  // Generar un ID único para este elemento visual específico (útil para el botón eliminar)
-  const visualId = `asignacion-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  elementoVisualAsignacion.setAttribute("id", visualId);
-
-
-  // 2. Registrar en Google Sheet
-  const datosAsignacion = {
-      expediente: window.expedienteActual,
-      codigoProducto: codigo,
-      estancia: roomId, // Usar el roomId obtenido del SVG
-      superficie: idSuperficie, // wallId o 'floor'
-      estado: 'asignado', // O mantener el estado que tuviera el producto? Mejor 'asignado' aquí.
-      origen: 'webapp-svg',
-      // cantidad, comentarios: podrían añadirse si se recogen de algún sitio
+  // --- Preparar datos para guardar el NUEVO detalle por PRIMERA VEZ ---
+  const detalleDataInicial = {
+      expediente: expedienteActual,
+      estancia: roomId,
+      codigoProducto: codigoProducto,
+      idSuperficie: idSuperficie,
+      cotaInferior: 0, // Default inicial
+      cotaSuperior: alturaDefault, // Default inicial
+      longitudSuperficie: +longitudObtenida.toFixed(4), // Guardar longitud obtenida
+      huecosJSON: [] // Sin huecos inicialmente (se guardará como '[]')
+      // cantidadCalculadaM2 se calcula en el backend
   };
 
-  // Mostrar feedback inmediato (ej. spinner) - Opcional
-  elementoVisualAsignacion.style.opacity = '0.5'; // Indicar que está procesando
-
+  // --- LLAMAR A LA FUNCIÓN BACKEND CORRECTA ---
   google.script.run
-      .withSuccessHandler(respuesta => {
-          console.log("Asignación registrada en Sheet:", respuesta);
-          elementoVisualAsignacion.style.opacity = '1'; // Restaurar opacidad
+      .withSuccessHandler(function(respuestaBackend) {
+          console.log("Respuesta de guardarDetalleSuperficie:", respuestaBackend);
+           if (elementoClicado) elementoClicado.style.opacity = '1'; // Restaurar opacidad
 
-          // 3. Actualizar Botón Original
-          botonOriginal.textContent = "Eliminar asignación";
-          botonOriginal.classList.remove("asignar");
-          botonOriginal.classList.add("eliminar");
-          // El onclick ahora llama a eliminar, pasando los datos necesarios Y el ID del elemento visual
-          botonOriginal.onclick = () => eliminarAsignacion(codigo, tipoSuperficie, idSuperficie, roomId, visualId);
+          if (respuestaBackend && respuestaBackend.status === "success") {
+              // --- ÉXITO AL GUARDAR ---
 
-           // 4. Añadir listener al nuevo elemento visual para eliminar
-           elementoVisualAsignacion.addEventListener('click', (event) => {
-               event.stopPropagation();
-               // Pasar el ID del elemento visual para encontrarlo fácilmente
-               eliminarAsignacion(codigo, tipoSuperficie, idSuperficie, roomId, visualId);
-           });
-           elementoVisualAsignacion.style.cursor = 'pointer';
+              // 1. Dibujar Indicador Visual (usando la función ya modificada con offset)
+              let elementoVisualAsignacion;
+              if (tipoSuperficie === 'wall') {
+                  const lineaOriginal = svgElement.querySelector(`line.pared[data-wall="${idSuperficie}"]`);
+                  if (lineaOriginal) {
+                      elementoVisualAsignacion = dibujarIndicadorPared(lineaOriginal, codigoProducto, idSuperficie, color);
+                  } else console.error("No se encontró línea original para dibujar indicador pared", idSuperficie);
+              } else { // floor
+                  const poligonoOriginal = svgElement.querySelector('polygon.suelo');
+                   if (poligonoOriginal) {
+                      elementoVisualAsignacion = dibujarIndicadorSuelo(poligonoOriginal, codigoProducto, color);
+                  } else console.error("No se encontró polígono original para dibujar indicador suelo");
+              }
+
+              // 2. Crear el Mini-Formulario UI (¡Este es el paso que falta!)
+              if (elementoVisualAsignacion) {
+                  // --- !! PASO SIGUIENTE: IMPLEMENTAR ESTO !! ---
+                  // Necesitamos encontrar el contenedor correcto bajo el cromo del producto
+                  const contenedorFormularios = findMiniFormContainer(roomId, codigoProducto); // NECESITAMOS ESTA FUNCIÓN
+                  if (contenedorFormularios) {
+                       const miniFormElement = crearMiniFormularioSuperficie(detalleDataInicial, contenedorFormularios, roomId, codigoProducto);
+                       if (miniFormElement) {
+                           // attachListenersToMiniForm(miniFormElement.id); // Adjuntar listeners (Paso futuro)
+                       }
+                  } else {
+                       console.error(`No se encontró el contenedor para mini-forms de ${codigoProducto} en ${roomId}`);
+                  }
+                   // --- FIN PASO SIGUIENTE ---
+
+                   // Añadir listener al elemento visual para eliminar (si se creó bien)
+                   elementoVisualAsignacion.addEventListener('click', (event) => {
+                       event.stopPropagation();
+                       handleDeleteSurfaceAssignment(elementoVisualAsignacion.id); // Asume que el ID se puso bien en dibujarIndicador...
+                   });
+                   elementoVisualAsignacion.style.cursor = 'pointer';
+
+              } else {
+                  console.error("No se pudo dibujar el indicador visual, no se creará mini-form.");
+              }
+
+
+              // 3. Actualizar Botón Original (si no se ha modificado ya por otra asignación)
+              if (botonOriginal && botonOriginal.classList.contains('asignar')) { // Solo cambiar si AÚN es "Asignar"
+                   botonOriginal.textContent = "Eliminar asignación"; // OJO: Este botón ahora debería DESCARTAR, no eliminar detalles? Revisar lógica de botones
+                   botonOriginal.classList.remove("asignar");
+                   botonOriginal.classList.add("eliminar"); // ¿O clase 'descartar'?
+                   // El onclick debería ser para descartar el producto, no para eliminar superficie
+                   // botonOriginal.onclick = () => descartarProducto(codigoProducto, roomId); // Revisar si esto es correcto
+                   console.warn("Lógica del botón principal 'Eliminar asignación' necesita revisión para nueva funcionalidad.");
+              }
+
+               // 4. Actualizar Cantidad Total (Paso futuro)
+               // updateTotalQuantityDisplay(expedienteActual, roomId, codigoProducto);
+
+
+          } else {
+              // El backend devolvió un error controlado
+              console.error("Error guardando detalle superficie:", respuestaBackend?.message || "Error desconocido");
+              alert("Error al guardar la asignación de superficie: " + (respuestaBackend?.message || "Error desconocido"));
+          }
+
+           // Limpiar estado de asignación independientemente del éxito del UI
+           cancelarAsignacion();
 
       })
       .withFailureHandler(error => {
-          console.error("Error al registrar en Sheet:", error);
-          alert(`Error al guardar la asignación para ${codigo}: ${error.message || error}`);
-          // Eliminar el indicador visual si falla el guardado
-          if (elementoVisualAsignacion && elementoVisualAsignacion.parentNode) {
-              elementoVisualAsignacion.parentNode.removeChild(elementoVisualAsignacion);
-          }
-          // NO cambiar el botón original si falló
+          // Error en la llamada google.script.run en sí
+           if (elementoClicado) elementoClicado.style.opacity = '1'; // Restaurar opacidad
+           handleScriptError(error); // Usar el manejador genérico
+           cancelarAsignacion(); // Limpiar estado también si falla la llamada
       })
-      .registrarAsignacionProducto(datosAsignacion);
+      .guardarDetalleSuperficie(detalleDataInicial); // <--- LLAMAR A LA FUNCIÓN CORRECTA
 
-  // 5. Limpiar Estado de Asignación (se hace independientemente del éxito/fallo del backend)
-  cancelarAsignacion(); // Llama a la función que limpia estado y UI
 }
 
+// --- Función auxiliar NECESARIA (Implementación básica) ---
+// Encuentra el div específico donde deben ir los mini-forms para un producto/room
+function findMiniFormContainer(roomId, codigoProducto) {
+  // Asumimos que procesarAsignaciones crea un div con una clase y data attributes:
+  // <div class="mini-forms-container" data-room-id="roomId" data-codigo-producto="codigoProducto"></div>
+  // Esta es una implementación posible, AJÚSTALA a cómo generes el contenedor en procesarAsignaciones
+  const selector = `.mini-forms-container[data-room-id="${roomId}"][data-codigo-producto="${codigoProducto}"]`;
+  // Necesitamos buscar dentro del bloque de estancia correcto... es complejo encontrarlo globalmente.
+  // Sería mejor si procesarAsignaciones guardara una referencia a estos contenedores.
+  // SOLUCIÓN MÁS SIMPLE POR AHORA: Asumir que el botón original está cerca
+  const boton = document.querySelector(`button[data-codigo="${codigoProducto}"]`);
+  const cromo = boton?.closest('.cromo-producto');
+  const contenedor = cromo?.parentElement?.querySelector(`.mini-forms-container[data-codigo-producto="${codigoProducto}"]`); // Buscar DENTRO del 'detail' del tipo
+  if (!contenedor) console.error(`Contenedor no encontrado con selector: .mini-forms-container[data-codigo-producto="${codigoProducto}"] dentro del detail del producto.`);
+
+  return contenedor || null;
+}
 
 // --- 6. Funciones Auxiliares de Dibujo ---
 
@@ -336,7 +369,7 @@ function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
   newLine.setAttribute('y2', (y2 + finalOffset * ny).toFixed(2));
 
   newLine.setAttribute('stroke', color);
-  newLine.setAttribute('stroke-width', '2');
+  newLine.setAttribute('stroke-width', '8');
   newLine.setAttribute('stroke-linecap', 'round');
   newLine.setAttribute('class', 'indicador-asignacion pared-asignada');
 
