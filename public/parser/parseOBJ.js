@@ -86,11 +86,11 @@
     console.log("\n--- Primeros 10 Vértices Originales ---");
     for (let room in ceilingPorRoom) {
       const verticesCrudos = ceilingPorRoom[room];
-      const puntosXZ = verticesCrudos.map(v => ({ x: +(-v.x).toFixed(5), y: +(-v.z).toFixed(5) }));
+      const puntosXZ = verticesCrudos.map(v => ({ x: +(-v.x).toFixed(5), z: +(-v.z).toFixed(5) }));
 
       const claves = new Set();
       const puntosUnicos = puntosXZ.filter(p => {
-        const clave = `${p.x},${p.y}`;
+        const clave = `${p.x},${p.z}`;
         if (claves.has(clave)) return false;
         claves.add(clave);
         return true;
@@ -106,11 +106,11 @@
       }
 
       function paredesDePunto(punto, verticesPorPunto, tramo) {
-        console.log(`\n--- paredesDePunto para punto: (${punto.x}, ${punto.y}) ---`);
+        console.log(`\n--- paredesDePunto para punto: (${punto.x}, ${punto.z}) ---`);
         const walls = new Set();
         let found = false;
       
-        const puntoKey = `${punto.x.toFixed(5)},${punto.y.toFixed(5)}`; // Creamos la clave del punto
+        const puntoKey = `${punto.x.toFixed(5)},${punto.z.toFixed(5)}`; // Creamos la clave del punto
       
         if (verticesPorPunto[puntoKey]) { // Buscamos la clave directamente
           verticesPorPunto[puntoKey].forEach(wall => {
