@@ -141,8 +141,8 @@
 
       const sueloNorm = normalize(ordenados, 500, 500);
       const extremosNorm = normalize(paredes.flatMap(p => [
-        { x: p.x1, y: p.z1 },
-        { x: p.x2, y: p.z2 }
+        { x: p.x1, z: p.z1 },
+        { x: p.x2, z: p.z2 }
       ]), 500, 500);
 
       let i = 0;
