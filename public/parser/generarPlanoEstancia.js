@@ -292,22 +292,36 @@ async function realizarAsignacion(tipoSuperficie, idSuperficie, elementoClicado)
 
 }
 
-// --- Función auxiliar NECESARIA (Implementación básica) ---
-// Encuentra el div específico donde deben ir los mini-forms para un producto/room
+/**
+ * Encuentra el div contenedor específico para los mini-formularios de un producto.
+ * Busca relativo al botón "Asignar/Eliminar" de ese producto.
+ * @param {string} roomId - El ID de la habitación (puede no ser necesario con esta estrategia).
+ * @param {string} codigoProducto - El código del producto.
+ * @returns {HTMLElement|null} El elemento div contenedor o null si no se encuentra.
+ */
 function findMiniFormContainer(roomId, codigoProducto) {
-  // Asumimos que procesarAsignaciones crea un div con una clase y data attributes:
-  // <div class="mini-forms-container" data-room-id="roomId" data-codigo-producto="codigoProducto"></div>
-  // Esta es una implementación posible, AJÚSTALA a cómo generes el contenedor en procesarAsignaciones
-  const selector = `.mini-forms-container[data-room-id="${roomId}"][data-codigo-producto="${codigoProducto}"]`;
-  // Necesitamos buscar dentro del bloque de estancia correcto... es complejo encontrarlo globalmente.
-  // Sería mejor si procesarAsignaciones guardara una referencia a estos contenedores.
-  // SOLUCIÓN MÁS SIMPLE POR AHORA: Asumir que el botón original está cerca
-  const boton = document.querySelector(`button[data-codigo="${codigoProducto}"]`);
-  const cromo = boton?.closest('.cromo-producto');
-  const contenedor = cromo?.parentElement?.querySelector(`.mini-forms-container[data-codigo-producto="${codigoProducto}"]`); // Buscar DENTRO del 'detail' del tipo
-  if (!contenedor) console.error(`Contenedor no encontrado con selector: .mini-forms-container[data-codigo-producto="${codigoProducto}"] dentro del detail del producto.`);
+  // 1. Encontrar un elemento distintivo del producto (el botón es buena opción)
+  // Usamos data-codigo que añadimos al botón
+  const botonProducto = document.querySelector(`button[data-codigo="${codigoProducto}"]`);
+  if (!botonProducto) {
+      console.error(`findMiniFormContainer: No se encontró el botón para ${codigoProducto}`);
+      return null;
+  }
+  // 2. Subir al contenedor del tipo de producto (<details class="bloque-tipo">)
+  const detailElement = botonProducto.closest('.bloque-tipo');
+  if (!detailElement) {
+       console.error(`findMiniFormContainer: No se encontró el <details> padre (.bloque-tipo) para ${codigoProducto}`);
+       return null;
+  }
+  // 3. Buscar DENTRO de ese <details> el div contenedor específico
+  const selector = `.mini-forms-container[data-codigo-producto="${codigoProducto}"]`;
+  const contenedor = detailElement.querySelector(selector);
 
-  return contenedor || null;
+  if (!contenedor) {
+      // Este log es útil si el contenedor no se creó bien en procesarAsignaciones
+      console.error(`findMiniFormContainer: Contenedor no encontrado con selector: ${selector} DENTRO del detail`);
+  }
+  return contenedor || null; // Devuelve el contenedor o null
 }
 
 // --- 6. Funciones Auxiliares de Dibujo ---
