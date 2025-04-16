@@ -110,7 +110,7 @@
         const walls = new Set();
         let found = false;
       
-        const puntoKey = `${punto.x.toFixed(5)},${punto.z.toFixed(5)}`; // Creamos la clave del punto
+        const puntoKey = `${punto.x.toFixed(5)},${(punto.z || 0).toFixed(5)}`; // Creamos la clave del punto
       
         if (verticesPorPunto[puntoKey]) { // Buscamos la clave directamente
           verticesPorPunto[puntoKey].forEach(wall => {
