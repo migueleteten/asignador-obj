@@ -19,7 +19,7 @@
     const scale = Math.min(scaleX, scaleY);
     return vertices.map(({ x, y }) => ({
       x: (x - minX) * scale + padding,
-      y: height - ((y - minY) * scale + padding) // inversión vertical
+      y: height - ((y - minY) * scale + padding)
     }));
   }
 
@@ -40,7 +40,7 @@
     const lines = textoOBJ.split("\n");
     const vertices = [];
     const ceilingPorRoom = {};
-    const wallsPorRoom = {};
+    const verticesPorPunto = {}; // para rastrear qué wall contiene cada vértice
     let currentRoom = null;
     let currentWall = null;
     let parsingCeiling = false;
@@ -56,17 +56,19 @@
         if (currentRoom) {
           parsingCeiling = isCeiling;
           if (parsingCeiling && !ceilingPorRoom[currentRoom]) ceilingPorRoom[currentRoom] = [];
-          if (!parsingCeiling && currentRoom && wall) {
-            currentWall = wall.toLowerCase();
-            if (!wallsPorRoom[currentRoom]) wallsPorRoom[currentRoom] = [];
-          }
+          currentWall = wall ? wall.toLowerCase() : null;
         }
       }
       else if (line.startsWith("v ")) {
         const [, x, y, z] = line.trim().split(/\s+/).map(Number);
-        const vertice = { x: x, y: y, z: z };
-        if (parsingCeiling && currentRoom) ceilingPorRoom[currentRoom].push(vertice);
-        else vertices.push({ ...vertice, room: currentRoom, wall: currentWall });
+        const vertice = { x: +x.toFixed(5), y: +y.toFixed(5), z: +z.toFixed(5) };
+        if (parsingCeiling && currentRoom) {
+          ceilingPorRoom[currentRoom].push(vertice);
+        } else if (currentRoom && currentWall) {
+          const key = `${vertice.x},${vertice.z}`;
+          if (!verticesPorPunto[key]) verticesPorPunto[key] = new Set();
+          verticesPorPunto[key].add(currentWall);
+        }
       }
     });
 
@@ -74,7 +76,7 @@
 
     for (let room in ceilingPorRoom) {
       const verticesCrudos = ceilingPorRoom[room];
-      const puntosXZ = verticesCrudos.map(v => ({ x: +v.x.toFixed(5), y: +v.z.toFixed(5) }));
+      const puntosXZ = verticesCrudos.map(v => ({ x: +(-v.x).toFixed(5), y: +(-v.z).toFixed(5) }));
 
       const claves = new Set();
       const puntosUnicos = puntosXZ.filter(p => {
@@ -85,34 +87,30 @@
       });
 
       const ordenados = ordenarPorAngulo(puntosUnicos);
-      const simetrizados = ordenados.map(p => ({ x: -p.x, y: -p.y }));
 
       const tramos = [];
-      for (let i = 0; i < simetrizados.length; i++) {
-        const a = simetrizados[i];
-        const b = simetrizados[(i + 1) % simetrizados.length];
-        tramos.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+      for (let i = 0; i < ordenados.length; i++) {
+        const a = ordenados[i];
+        const b = ordenados[(i + 1) % ordenados.length];
+        const claveA = `${a.x},${a.y}`;
+        const claveB = `${b.x},${b.y}`;
+        const wallsA = verticesPorPunto[claveA] || new Set();
+        const wallsB = verticesPorPunto[claveB] || new Set();
+        const comunes = [...wallsA].filter(w => wallsB.has(w));
+        tramos.push({
+          x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+          wallId: comunes.length === 1 ? comunes[0] : null
+        });
       }
 
-      const paredes = tramos.map(tramo => {
-        const wallMatch = vertices.find(v =>
-          (Math.abs(v.x - tramo.x1) < 0.01 || Math.abs(v.x - tramo.x2) < 0.01) &&
-          (Math.abs(v.z - tramo.y1) < 0.01 || Math.abs(v.z - tramo.y2) < 0.01)
-        );
-        return {
-          ...tramo,
-          wallId: wallMatch?.wall || null
-        };
-      });
-
-      const sueloNorm = normalize(simetrizados, 500, 500);
-      const extremosNorm = normalize(paredes.flatMap(p => [
+      const sueloNorm = normalize(ordenados, 500, 500);
+      const extremosNorm = normalize(tramos.flatMap(p => [
         { x: p.x1, y: p.y1 },
         { x: p.x2, y: p.y2 }
       ]), 500, 500);
 
       let i = 0;
-      const paredesNorm = paredes.map(p => {
+      const paredesNorm = tramos.map(p => {
         const p1 = extremosNorm[i++];
         const p2 = extremosNorm[i++];
         return {
