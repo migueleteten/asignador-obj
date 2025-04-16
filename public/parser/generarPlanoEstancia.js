@@ -513,8 +513,8 @@ function crearMiniFormularioSuperficie(detalleData, contenedorDOM, roomId, codig
 
   // --- Obtener valores o establecer defaults ---
   // Usar ID_Detalle real si existe (al restaurar), o uno temporal si es nuevo
-  const idDetalle = detalleData.idDetalle || `new-${idSuperficie}-${Date.now()}`;
   const idSuperficie = detalleData.idSuperficie;
+  const idDetalle = detalleData.idDetalle || `new-${idSuperficie}-${Date.now()}`;
   if (!idSuperficie) {
        console.error("Error crítico: Falta idSuperficie para crear mini-form.");
        return null;
