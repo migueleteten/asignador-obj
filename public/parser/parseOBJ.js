@@ -99,11 +99,16 @@
         tramos.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
       }
 
-      function paredesDePunto(punto, vertices) {
-          return vertices
-            .filter(v => Math.abs(v.x - punto.x) < 0.01 && Math.abs(v.z - punto.y) < 0.01)
-            .map(v => v.wall);
+      function paredesDePunto(punto, verticesPorPunto) {
+        const walls = new Set();
+        for (const key in verticesPorPunto) {
+          const [x, z] = key.split(",").map(Number);
+          if (Math.abs(punto.x - x) < 0.001 && Math.abs(punto.y - z) < 0.001) {
+            verticesPorPunto[key].forEach(wall => walls.add(wall));
+          }
         }
+        return Array.from(walls);
+      }
         
         const paredes = tramos.map(tramo => {
           const wallsP1 = paredesDePunto({ x: tramo.x1, y: tramo.y1 }, vertices);
