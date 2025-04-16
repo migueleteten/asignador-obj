@@ -279,10 +279,33 @@ function realizarAsignacion(tipoSuperficie, idSuperficie, elementoClicado) {
 
 // --- 6. Funciones Auxiliares de Dibujo ---
 
+/**
+ * Dibuja el indicador visual para una pared asignada, aplicando offset si ya existen otros.
+ * @param {SVGLineElement} lineaOriginal - El elemento <line> de la pared base.
+ * @param {string} codigo - El código del producto asignado.
+ * @param {string} wallId - El ID de la pared (ej. "wall111").
+ * @param {string} color - El color CSS para el indicador.
+ * @returns {SVGLineElement|null} El nuevo elemento <line> creado o null si hay error.
+ */
 function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
-  const svg = lineaOriginal.closest('svg');
-  if (!svg) return null;
+  const svgElement = lineaOriginal.closest('svg[data-room-id]'); // Encuentra el SVG padre
+  if (!svgElement) {
+      console.error("dibujarIndicadorPared: No se encontró SVG padre para", lineaOriginal);
+      return null;
+  }
   const svgNS = "http://www.w3.org/2000/svg";
+
+  // --- NUEVO: Lógica de Offset ---
+  // Buscar indicadores existentes para esta MISMA pared
+  const selector = `.indicador-asignacion[data-asignacion-tipo="wall"][data-asignacion-id="${wallId}"]`;
+  const existingIndicators = svgElement.querySelectorAll(selector);
+  const offsetIndex = existingIndicators.length; // 0 para el primero, 1 para el segundo, etc.
+
+  const baseOffset = 4; // Desplazamiento base en píxeles SVG
+  const stepOffset = 3; // Desplazamiento adicional por cada indicador existente
+  const finalOffset = baseOffset + offsetIndex * stepOffset;
+  console.log(`Dibujando indicador para ${wallId} (Producto ${codigo}). Índice: ${offsetIndex}, Offset: ${finalOffset}`);
+  // --- FIN Lógica de Offset ---
 
   const x1 = parseFloat(lineaOriginal.getAttribute('x1'));
   const y1 = parseFloat(lineaOriginal.getAttribute('y1'));
@@ -292,76 +315,279 @@ function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
   const dx = x2 - x1;
   const dy = y2 - y1;
   const len = Math.sqrt(dx * dx + dy * dy);
-  if (len < 1e-6) return null; // Evitar división por cero
+  if (len < 1e-6) return null;
 
-  // Calcular vector normal unitario (perpendicular)
-  // Nota: La dirección "interior" puede depender del orden de los vértices del OBJ.
-  // Prueba (-dy, dx). Si las líneas salen hacia afuera, prueba (dy, -dx).
+  // Calcular vector normal unitario (perpendicular) e intentar apuntar hacia adentro
   let nx = -dy / len;
   let ny = dx / len;
-
-  // --- Heurística simple para intentar apuntar hacia adentro ---
-  // Asume que el centro del viewBox (250, 250) está "dentro"
   const midX = (x1 + x2) / 2;
   const midY = (y1 + y2) / 2;
-  const vecToCenter = { x: 250 - midX, y: 250 - midY };
-  // Si el producto punto de la normal y el vector al centro es negativo,
-  // apuntan en direcciones opuestas (la normal apunta "hacia afuera"). Invertir.
+  const vecToCenter = { x: 250 - midX, y: 250 - midY }; // Asume centro en 250,250
   if ((nx * vecToCenter.x + ny * vecToCenter.y) < 0) {
       nx = -nx;
       ny = -ny;
   }
-  // -----------------------------------------------------------
-
-  const offset = 7; // Desplazamiento en píxeles SVG
 
   const newLine = document.createElementNS(svgNS, "line");
-  newLine.setAttribute('x1', (x1 + offset * nx).toFixed(2));
-  newLine.setAttribute('y1', (y1 + offset * ny).toFixed(2));
-  newLine.setAttribute('x2', (x2 + offset * nx).toFixed(2));
-  newLine.setAttribute('y2', (y2 + offset * ny).toFixed(2));
+  // Aplicar el offset FINAL calculado
+  newLine.setAttribute('x1', (x1 + finalOffset * nx).toFixed(2));
+  newLine.setAttribute('y1', (y1 + finalOffset * ny).toFixed(2));
+  newLine.setAttribute('x2', (x2 + finalOffset * nx).toFixed(2));
+  newLine.setAttribute('y2', (y2 + finalOffset * ny).toFixed(2));
 
   newLine.setAttribute('stroke', color);
-  newLine.setAttribute('stroke-width', '8'); // Más fina que la pared
+  newLine.setAttribute('stroke-width', '2');
   newLine.setAttribute('stroke-linecap', 'round');
-  newLine.setAttribute('class', 'indicador-asignacion pared-asignada'); // Clases para estilo/selección
+  newLine.setAttribute('class', 'indicador-asignacion pared-asignada');
 
-  // Datos para identificar esta asignación
+  // Datos para identificar esta asignación específica
   newLine.setAttribute('data-asignacion-codigo', codigo);
   newLine.setAttribute('data-asignacion-tipo', 'wall');
-  newLine.setAttribute('data-asignacion-id', wallId); // wallId
+  newLine.setAttribute('data-asignacion-id', wallId);
+  // Generamos un ID único para poder referenciarlo fácilmente (ej, para borrarlo)
+  const visualId = `asignacion-${codigo}-${wallId}-${Date.now()}`;
+  newLine.setAttribute("id", visualId);
 
-  // Insertar DESPUÉS de la línea original para que se vea encima si hay solapamiento
+
+  // Insertar DESPUÉS de la línea original
   lineaOriginal.insertAdjacentElement('afterend', newLine);
 
-  return newLine;
+  return newLine; // Devolver la línea creada
 }
 
+/**
+ * Dibuja el indicador visual para el suelo asignado.
+ * Nota: Para el suelo, simplemente superponemos polígonos con opacidad.
+ * El último asignado será el más visible, pero todos existen en el DOM.
+ * @param {SVGPolygonElement} poligonoOriginal - El elemento <polygon> del suelo base.
+ * @param {string} codigo - El código del producto asignado.
+ * @param {string} color - El color CSS para el indicador.
+ * @returns {SVGPolygonElement|null} El nuevo elemento <polygon> creado o null si hay error.
+ */
 function dibujarIndicadorSuelo(poligonoOriginal, codigo, color) {
-  const svg = poligonoOriginal.closest('svg');
-   if (!svg) return null;
-  const svgNS = "http://www.w3.org/2000/svg";
+  const svgElement = poligonoOriginal.closest('svg[data-room-id]');
+  if (!svgElement) {
+     console.error("dibujarIndicadorSuelo: No se encontró SVG padre para", poligonoOriginal);
+     return null;
+  }
+ const svgNS = "http://www.w3.org/2000/svg";
 
-  const newPolygon = document.createElementNS(svgNS, "polygon");
-  newPolygon.setAttribute('points', poligonoOriginal.getAttribute('points')); // Mismos puntos
+ // --- Lógica de Opacidad (Alternativa a Offset para suelo) ---
+ // Buscar indicadores de suelo existentes
+ const selector = '.indicador-asignacion[data-asignacion-tipo="floor"]';
+ const existingIndicators = svgElement.querySelectorAll(selector);
+ const baseOpacity = 0.6;
+ const opacityStep = 0.05; // Reducir opacidad ligeramente por cada capa
+ const finalOpacity = Math.max(0.1, baseOpacity - existingIndicators.length * opacityStep); // Evitar opacidad 0 o negativa
+  console.log(`Dibujando indicador para suelo (Producto ${codigo}). Capa: ${existingIndicators.length}, Opacidad: ${finalOpacity}`);
+ // --- Fin Lógica de Opacidad ---
 
-  newPolygon.setAttribute('fill', color);
-  newPolygon.setAttribute('fill-opacity', '0.6'); // Semitransparente
-  newPolygon.setAttribute('stroke', color);       // Borde del mismo color
-  newPolygon.setAttribute('stroke-width', '1');
-  newPolygon.setAttribute('class', 'indicador-asignacion suelo-asignado');
 
-  // Datos para identificar esta asignación
-  newPolygon.setAttribute('data-asignacion-codigo', codigo);
-  newPolygon.setAttribute('data-asignacion-tipo', 'floor');
-  newPolygon.setAttribute('data-asignacion-id', 'floor'); // Id genérico para suelo
+ const newPolygon = document.createElementNS(svgNS, "polygon");
+ newPolygon.setAttribute('points', poligonoOriginal.getAttribute('points'));
 
-  // Insertar DESPUÉS del polígono original
-  poligonoOriginal.insertAdjacentElement('afterend', newPolygon);
+ newPolygon.setAttribute('fill', color);
+ newPolygon.setAttribute('fill-opacity', finalOpacity.toFixed(2)); // Aplicar opacidad calculada
+ newPolygon.setAttribute('stroke', 'none'); // Sin borde para que no se acumulen
+ newPolygon.setAttribute('class', 'indicador-asignacion suelo-asignado');
 
-  return newPolygon;
+ // Datos para identificar esta asignación específica
+ newPolygon.setAttribute('data-asignacion-codigo', codigo);
+ newPolygon.setAttribute('data-asignacion-tipo', 'floor');
+ newPolygon.setAttribute('data-asignacion-id', 'floor'); // ID genérico para suelo
+ // Generamos un ID único
+ const visualId = `asignacion-${codigo}-floor-${Date.now()}`;
+ newPolygon.setAttribute("id", visualId);
+
+ // Insertar DESPUÉS del polígono original (o del último indicador de suelo)
+ if (existingIndicators.length > 0) {
+    existingIndicators[existingIndicators.length - 1].insertAdjacentElement('afterend', newPolygon);
+ } else {
+    poligonoOriginal.insertAdjacentElement('afterend', newPolygon);
+ }
+
+
+ return newPolygon;
 }
 
+// --- DENTRO de generarPlanoEstancia.js ---
+
+/**
+ * Calcula la cantidad neta para un detalle de superficie.
+ * @param {number} longitud - Longitud de la superficie.
+ * @param {number} cotaInf - Cota inferior.
+ * @param {number} cotaSup - Cota superior.
+ * @param {Array<object>} huecosArray - Array de objetos hueco, ej: [{largo: 1, alto: 1}, ...].
+ * @returns {number} La cantidad calculada en m², redondeada a 3 decimales.
+ */
+function calcularCantidadDetalle(longitud, cotaInf, cotaSup, huecosArray) {
+  const long = parseFloat(longitud) || 0;
+  const cInf = parseFloat(cotaInf) || 0;
+  const cSup = parseFloat(cotaSup) || 0;
+  let restaHuecos = 0;
+
+  // Sumar el área de los huecos válidos
+  if (Array.isArray(huecosArray)) {
+      huecosArray.forEach(h => {
+          const largo = parseFloat(h?.largo) || 0;
+          const alto = parseFloat(h?.alto) || 0;
+          if (largo > 0 && alto > 0) {
+              restaHuecos += (largo * alto);
+          }
+      });
+  }
+
+  const alturaNeta = cSup - cInf;
+  // Asegurarse que la altura neta no sea negativa
+  if (alturaNeta < 0) {
+       console.warn(`Cálculo cantidad: Cota superior (${cSup}) es menor que inferior (${cInf}). Usando altura 0.`);
+       return 0;
+  }
+
+  const cantidadBruta = long * alturaNeta;
+  const cantidadNeta = Math.max(0, cantidadBruta - restaHuecos); // Evitar cantidades negativas
+
+  // Devolver como número redondeado
+  return +cantidadNeta.toFixed(3);
+}
+
+
+/**
+* Crea y añade el HTML del mini-formulario para un detalle de superficie.
+* @param {object} detalleData - Objeto con los datos del detalle (puede tener valores por defecto si es nuevo).
+* Ej: { idDetalle?, idSuperficie, cotaInferior?, cotaSuperior?, longitudSuperficie?, huecosJSON? }
+* @param {HTMLElement} contenedorDOM - El elemento HTML donde se añadirá este formulario.
+* @param {string} roomId - El ID de la habitación.
+* @param {string} codigoProducto - El código del producto asociado.
+* @returns {HTMLElement|null} El elemento div principal del formulario creado o null si hay error.
+*/
+function crearMiniFormularioSuperficie(detalleData, contenedorDOM, roomId, codigoProducto) {
+  console.log(`Creando mini-form para:`, { detalleData, roomId, codigoProducto });
+
+  // --- Obtener valores o establecer defaults ---
+  // Usar ID_Detalle real si existe (al restaurar), o uno temporal si es nuevo
+  const idDetalle = detalleData.idDetalle || `new-${idSuperficie}-${Date.now()}`;
+  const idSuperficie = detalleData.idSuperficie;
+  if (!idSuperficie) {
+       console.error("Error crítico: Falta idSuperficie para crear mini-form.");
+       return null;
+   }
+
+  const cotaInf = detalleData.cotaInferior !== undefined ? detalleData.cotaInferior : 0;
+
+  // Obtener altura por defecto (NECESITA IMPLEMENTACIÓN de getRoomHeight)
+  // Asumimos 2.5 como fallback si getRoomHeight no está lista o falla
+  const alturaDefault = getRoomHeight(roomId) || 2.50;
+  const cotaSup = detalleData.cotaSuperior !== undefined ? detalleData.cotaSuperior : alturaDefault;
+
+  // Obtener longitud (NECESITA IMPLEMENTACIÓN de getSegmentLength)
+  // Asumimos 0 como fallback si getSegmentLength no está lista o falla
+  const longitud = detalleData.longitudSuperficie !== undefined ? detalleData.longitudSuperficie : (getSegmentLength(idSuperficie, roomId) || 0);
+
+  // Huecos: Asegurarse que es un array
+  const huecos = Array.isArray(detalleData.huecosJSON) ? detalleData.huecosJSON : [];
+
+  // Calcular cantidad inicial
+  const cantidadInicial = calcularCantidadDetalle(longitud, cotaInf, cotaSup, huecos);
+
+  // ID único para el contenedor del formulario
+  const formId = `miniform-${roomId}-${codigoProducto}-${idSuperficie.replace(/[^a-zA-Z0-9]/g, '')}`; // Crear ID válido para HTML
+
+  // --- Crear estructura HTML ---
+  const divForm = document.createElement('div');
+  divForm.className = 'mini-form-superficie'; // Clase principal para estilos
+  divForm.id = formId;
+  // Guardar datos clave en atributos data-* para fácil acceso desde listeners
+  divForm.dataset.idDetalle = idDetalle; // Puede ser 'new-...' inicialmente
+  divForm.dataset.idSuperficie = idSuperficie;
+  divForm.dataset.codigoProducto = codigoProducto;
+  divForm.dataset.roomId = roomId;
+  divForm.dataset.longitud = longitud.toFixed(4); // Guardar longitud como data attribute
+
+  let formHTML = `
+      <div class="mini-form-header">
+          <strong>Superficie: ${idSuperficie}</strong>
+          <span class="longitud-display">(Long: ${longitud.toFixed(2)} m)</span>
+      </div>
+      <div class="mini-form-row cotas-row">
+          <label for="${formId}-cotaInf">Cota Inf (m):</label>
+          <input type="number" id="${formId}-cotaInf" class="cota-input" data-prop="cotaInferior" step="0.01" min="0" value="${cotaInf}">
+          <label for="${formId}-cotaSup">Cota Sup (m):</label>
+          <input type="number" id="${formId}-cotaSup" class="cota-input" data-prop="cotaSuperior" step="0.01" min="0" value="${cotaSup}">
+      </div>
+      <div class="mini-form-huecos">
+          <strong class="huecos-titulo">Huecos a restar:</strong>
+          <div class="huecos-container">`; // Contenedor para filas de huecos
+
+  // --- Añadir filas para huecos existentes ---
+  huecos.forEach((hueco, index) => {
+      // Generar ID único para la fila del hueco
+       const huecoRowId = `${formId}-hueco-${index}`;
+       // Usamos comillas simples dentro del onclick para el formId
+       formHTML += `
+          <div class="hueco-row" id="${huecoRowId}" data-hueco-index="${index}">
+              <label>H${index + 1} (m):</label>
+              L: <input type="number" class="hueco-input" data-prop="largo" step="0.01" min="0" value="${hueco.largo || ''}" placeholder="Largo">
+              &times; Al: <input type="number" class="hueco-input" data-prop="alto" step="0.01" min="0" value="${hueco.alto || ''}" placeholder="Alto">
+              <button type="button" class="remove-hueco-btn" title="Eliminar Hueco" onclick="removeHueco('${huecoRowId}', '${formId}')">&times;</button>
+          </div>`;
+  });
+
+  // Cerrar divs y añadir botón para añadir hueco
+  formHTML += `
+          </div> {/* Fin huecos-container */}
+          <button type="button" class="add-hueco-btn" onclick="addHueco('${formId}')">+ Restar hueco</button>
+      </div> {/* Fin mini-form-huecos */}
+      <div class="mini-form-resultado">
+          <strong>Cantidad (m²):</strong>
+          <span class="cantidad-calculada-display">${cantidadInicial.toFixed(3)}</span>
+      </div>
+      <div class="mini-form-actions">
+           <button type="button" class="delete-surface-btn" title="Eliminar asignación de esta superficie" onclick="handleDeleteSurfaceAssignment('${formId}')">Eliminar Superficie</button>
+      </div>
+  `;
+
+  divForm.innerHTML = formHTML;
+
+  // --- Añadir al DOM ---
+  if (contenedorDOM && contenedorDOM.appendChild) {
+      contenedorDOM.appendChild(divForm);
+      console.log(`Mini-form ${formId} añadido al DOM.`);
+      // --- Adjuntar Listeners (próximo paso) ---
+      // Aquí llamaríamos a la función que añade los listeners de input, etc.
+      // attachListenersToMiniForm(formId);
+      return divForm; // Devolver el elemento creado
+  } else {
+      console.error("Contenedor DOM no válido para el mini-formulario:", contenedorDOM);
+      return null;
+  }
+}
+
+// --- FUNCIONES PLACEHOLDER (NECESITAN IMPLEMENTACIÓN) ---
+
+function getRoomHeight(roomId) {
+  // TODO: Implementar lógica para obtener la altura de window.geometriaPorRoom
+  const roomData = window.geometriaPorRoom ? window.geometriaPorRoom[roomId] : null;
+  if (roomData && roomData.alturaTecho !== undefined) {
+      return roomData.alturaTecho;
+  }
+  console.warn(`getRoomHeight: No se encontró altura para room ${roomId}. Usando fallback 2.5`);
+  return 2.5; // Valor por defecto temporal
+}
+
+function getSegmentLength(idSuperficie, roomId) {
+   // TODO: Implementar lógica para obtener la longitud de window.geometriaPorRoom
+   if (idSuperficie === 'floor') return 0; // Suelo no tiene longitud lineal definida así
+   const roomData = window.geometriaPorRoom ? window.geometriaPorRoom[roomId] : null;
+   const pared = roomData?.paredes?.find(p => p.wallId === idSuperficie);
+   if (pared && pared.longitudOriginal !== undefined) {
+       return pared.longitudOriginal;
+   }
+   console.warn(`getSegmentLength: No se encontró longitud para superficie ${idSuperficie} en room ${roomId}. Usando fallback 0`);
+   return 0; // Valor por defecto temporal
+}
+
+// --- FIN FUNCIONES PLACEHOLDER ---
 
 // --- 7. Nueva Función: `eliminarAsignacion` (Llamada por botón o click en indicador) ---
 
