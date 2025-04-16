@@ -2,38 +2,38 @@
 
 (function () {
   function getBounds(vertices) {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    vertices.forEach(({ x, y }) => {
+    let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+    vertices.forEach(({ x, z }) => {
       if (x < minX) minX = x;
-      if (y < minY) minY = y;
+      if (z < minZ) minZ = z;
       if (x > maxX) maxX = x;
-      if (y > maxY) maxY = y;
+      if (z > maxZ) maxZ = z;
     });
-    return { minX, minY, maxX, maxY };
+    return { minX, minZ, maxX, maxZ };
   }
 
   function normalize(vertices, width, height, padding = 5) {
-    const { minX, minY, maxX, maxY } = getBounds(vertices);
+    const { minX, minZ, maxX, maxZ } = getBounds(vertices);
     const scaleX = (width - 2 * padding) / (maxX - minX || 1);
-    const scaleY = (height - 2 * padding) / (maxY - minY || 1);
-    const scale = Math.min(scaleX, scaleY);
+    const scaleZ = (height - 2 * padding) / (maxZ - minZ || 1);
+    const scale = Math.min(scaleX, scaleZ);
   
     const offsetX = (width - ((maxX - minX) * scale)) / 2;
-    const offsetY = (height - ((maxY - minY) * scale)) / 2;
+    const offsetZ = (height - ((maxZ - minZ) * scale)) / 2;
   
-    return vertices.map(({ x, y }) => ({
+    return vertices.map(({ x, z }) => ({
       x: width - ((x - minX) * scale + offsetX),   // Invertir X
-      y: height - ((y - minY) * scale + offsetY)    // Invertir Y
+      z: height - ((z - minZ) * scale + offsetZ)    // Invertir Z
     }));
   }
 
   function ordenarPorAngulo(puntos) {
     if (!puntos.length) return puntos;
     const cx = puntos.reduce((sum, p) => sum + p.x, 0) / puntos.length;
-    const cy = puntos.reduce((sum, p) => sum + p.y, 0) / puntos.length;
+    const cz = puntos.reduce((sum, p) => sum + p.z, 0) / puntos.length;
     return puntos.slice().sort((a, b) => {
-      const angA = Math.atan2(a.y - cy, a.x - cx);
-      const angB = Math.atan2(b.y - cy, b.x - cx);
+      const angA = Math.atan2(a.z - cz, a.x - cx);
+      const angB = Math.atan2(b.z - cz, b.x - cx);
       return angA - angB;
     });
   }
