@@ -115,7 +115,9 @@
       }
     });
 
-    // console.log("🔍 Vertices por punto original:", verticesPorPuntoOriginal); // Mantener debug log si quieres
+    console.log("🔍 Vertices por punto original:", verticesPorPuntoOriginal); // Mantener debug log si quieres
+    // NUEVO LOG:
+    console.log("🏠 Rooms encontrados en ceilingVerticesPorRoom:", Object.keys(ceilingVerticesPorRoom));
 
     // --- Process Geometry Per Room ---
     window.geometriaPorRoom = {}; // Resetear geometría final
