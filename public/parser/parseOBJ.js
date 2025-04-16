@@ -105,24 +105,19 @@
         tramos.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
       }
 
-      function paredesDePunto(punto, verticesPorPunto, tramo) { // Agregamos 'tramo' para depurar
+      function paredesDePunto(punto, verticesPorPunto, tramo) {
         console.log(`\n--- paredesDePunto para punto: (${punto.x}, ${punto.y}) ---`);
         const walls = new Set();
-        let found = false; // Para indicar si se encontró alguna pared
+        let found = false;
       
-        for (const key in verticesPorPunto) {
-          const [x, z] = key.split(",").map(Number);
-          const dx = Math.abs(punto.x - x);
-          const dz = Math.abs(punto.y - z);
-          console.log(`  Comparando con vértice: (${x}, ${z}), dx: ${dx}, dz: ${dz}`);
+        const puntoKey = `${punto.x.toFixed(5)},${punto.y.toFixed(5)}`; // Creamos la clave del punto
       
-          if (dx < 0.001 && dz < 0.001) {
-            verticesPorPunto[key].forEach(wall => {
-              console.log(`    Encontrado wall: ${wall}`);
-              walls.add(wall);
-            });
-            found = true;
-          }
+        if (verticesPorPunto[puntoKey]) { // Buscamos la clave directamente
+          verticesPorPunto[puntoKey].forEach(wall => {
+            console.log(`    Encontrado wall: ${wall}`);
+            walls.add(wall);
+          });
+          found = true;
         }
       
         if (!found) {
