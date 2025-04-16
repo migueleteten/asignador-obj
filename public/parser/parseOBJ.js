@@ -177,8 +177,11 @@
         const originalZ2 = -p2_t.y;
 
         // --- NUEVO: Calcular Longitud Original ---
-        const dx_orig = originalX2 - origX1;
-        const dz_orig = originalZ2 - origZ1;
+        // Línea corregida para dx_orig:
+        const dx_orig = originalX2 - originalX1;
+
+        // Línea corregida para dz_orig:
+        const dz_orig = originalZ2 - originalZ1;
         const longitudOriginal = Math.sqrt(dx_orig * dx_orig + dz_orig * dz_orig);
 
         // --- Lógica existente para asignar WallId (usando claves redondeadas) ---
