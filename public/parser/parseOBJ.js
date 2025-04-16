@@ -102,7 +102,7 @@
       for (let i = 0; i < ordenados.length; i++) {
         const a = ordenados[i];
         const b = ordenados[(i + 1) % ordenados.length];
-        tramos.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+        tramos.push({ x1: a.x, z1: a.z, x2: b.x, z2: b.z });
       }
 
       function paredesDePunto(punto, verticesPorPunto, tramo) {
@@ -123,7 +123,7 @@
         if (!found) {
           console.log("  No se encontraron paredes para este punto.");
           if (tramo) {
-            console.log(`  Tramo: (${tramo.x1}, ${tramo.y1}) - (${tramo.x2}, ${tramo.y2})`);
+            console.log(`  Tramo: (${tramo.x1}, ${tramo.z1}) - (${tramo.x2}, ${tramo.z2})`);
           }
         }
       
@@ -133,16 +133,16 @@
       }
         
         const paredes = tramos.map(tramo => {
-          const wallsP1 = paredesDePunto({ x: tramo.x1, y: tramo.y1 }, vertices);
-          const wallsP2 = paredesDePunto({ x: tramo.x2, y: tramo.y2 }, vertices);
+          const wallsP1 = paredesDePunto({ x: tramo.x1, z: tramo.z1 }, vertices);
+          const wallsP2 = paredesDePunto({ x: tramo.x2, z: tramo.z2 }, vertices);
           const comunes = wallsP1.filter(w => wallsP2.includes(w));
           return { ...tramo, wallId: comunes[0] || null };
         });      
 
       const sueloNorm = normalize(ordenados, 500, 500);
       const extremosNorm = normalize(paredes.flatMap(p => [
-        { x: p.x1, y: p.y1 },
-        { x: p.x2, y: p.y2 }
+        { x: p.x1, y: p.z1 },
+        { x: p.x2, y: p.z2 }
       ]), 500, 500);
 
       let i = 0;
@@ -150,8 +150,8 @@
         const p1 = extremosNorm[i++];
         const p2 = extremosNorm[i++];
         return {
-          x1: p1.x, y1: p1.y,
-          x2: p2.x, y2: p2.y,
+          x1: p1.x, z1: p1.z,
+          x2: p2.x, z2: p2.z,
           wallId: p.wallId
         };
       });
