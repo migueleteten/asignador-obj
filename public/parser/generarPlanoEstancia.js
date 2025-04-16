@@ -348,8 +348,8 @@ function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
   const existingIndicators = svgElement.querySelectorAll(selector);
   const offsetIndex = existingIndicators.length; // 0 para el primero, 1 para el segundo, etc.
 
-  const baseOffset = 4; // Desplazamiento base en píxeles SVG
-  const stepOffset = 3; // Desplazamiento adicional por cada indicador existente
+  const baseOffset = 10; // Desplazamiento base en píxeles SVG
+  const stepOffset = 8; // Desplazamiento adicional por cada indicador existente
   const finalOffset = baseOffset + offsetIndex * stepOffset;
   console.log(`Dibujando indicador para ${wallId} (Producto ${codigo}). Índice: ${offsetIndex}, Offset: ${finalOffset}`);
   // --- FIN Lógica de Offset ---
