@@ -22,10 +22,10 @@
     const offsetY = (height - ((maxY - minY) * scale)) / 2;
   
     return vertices.map(({ x, y }) => ({
-      x: (x - minX) * scale + offsetX,
-      y: (y - minY) * scale + offsetY  // inversión + centrado
+      x: width - ((x - minX) * scale + offsetX),   // Invertir X
+      y: height - ((y - minY) * scale + offsetY)    // Invertir Y
     }));
-  }  
+  }
 
   function ordenarPorAngulo(puntos) {
     if (!puntos.length) return puntos;
