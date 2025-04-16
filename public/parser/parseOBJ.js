@@ -19,7 +19,7 @@
     const scale = Math.min(scaleX, scaleY);
     return vertices.map(({ x, y }) => ({
       x: (x - minX) * scale + padding,
-      y: (y - minY) * scale + padding
+      y: height - ((y - minY) * scale + padding) // inversión vertical
     }));
   }
 
@@ -66,18 +66,16 @@
         const [, x, y, z] = line.trim().split(/\s+/).map(Number);
         const vertice = { x: x, y: y, z: z };
         if (parsingCeiling && currentRoom) ceilingPorRoom[currentRoom].push(vertice);
-        else vertices.push(vertice); // solo walls
+        else vertices.push({ ...vertice, room: currentRoom, wall: currentWall });
       }
     });
 
-    // Identificar tramos del ceiling únicos por (x,z)
     window.geometriaPorRoom = {};
 
     for (let room in ceilingPorRoom) {
       const verticesCrudos = ceilingPorRoom[room];
       const puntosXZ = verticesCrudos.map(v => ({ x: +v.x.toFixed(5), y: +v.z.toFixed(5) }));
 
-      // Deduplicar puntos únicos
       const claves = new Set();
       const puntosUnicos = puntosXZ.filter(p => {
         const clave = `${p.x},${p.y}`;
@@ -86,13 +84,9 @@
         return true;
       });
 
-      // Centroide y orden por ángulo
       const ordenados = ordenarPorAngulo(puntosUnicos);
-
-      // Simetría en eje X y giro 180
       const simetrizados = ordenados.map(p => ({ x: -p.x, y: -p.y }));
 
-      // Crear tramos (cerrado)
       const tramos = [];
       for (let i = 0; i < simetrizados.length; i++) {
         const a = simetrizados[i];
@@ -100,28 +94,23 @@
         tramos.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
       }
 
-      // Buscar wallId
-      const walls = vertices.filter(v => typeof v.x === "number" && typeof v.z === "number");
-      const paredes = [];
-
-      for (const tramo of tramos) {
-        const pared = {
-          x1: tramo.x1,
-          y1: tramo.y1,
-          x2: tramo.x2,
-          y2: tramo.y2,
-          wallId: null
+      const paredes = tramos.map(tramo => {
+        const wallMatch = vertices.find(v =>
+          (Math.abs(v.x - tramo.x1) < 0.01 || Math.abs(v.x - tramo.x2) < 0.01) &&
+          (Math.abs(v.z - tramo.y1) < 0.01 || Math.abs(v.z - tramo.y2) < 0.01)
+        );
+        return {
+          ...tramo,
+          wallId: wallMatch?.wall || null
         };
-        paredes.push(pared);
-      }
+      });
 
-      const sueloNorm = normalize(simetrizados, 300, 300);
-
-      const todosExtremos = paredes.flatMap(p => [
+      const sueloNorm = normalize(simetrizados, 500, 500);
+      const extremosNorm = normalize(paredes.flatMap(p => [
         { x: p.x1, y: p.y1 },
         { x: p.x2, y: p.y2 }
-      ]);
-      const extremosNorm = normalize(todosExtremos, 300, 300);
+      ]), 500, 500);
+
       let i = 0;
       const paredesNorm = paredes.map(p => {
         const p1 = extremosNorm[i++];
@@ -142,4 +131,3 @@
     console.log("✅ OBJ parseado y ceiling interpretado. Rooms:", Object.keys(window.geometriaPorRoom));
   };
 })();
-  
