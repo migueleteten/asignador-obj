@@ -99,15 +99,36 @@
         tramos.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
       }
 
-      function paredesDePunto(punto, verticesPorPunto) {
+      function paredesDePunto(punto, verticesPorPunto, tramo) { // Agregamos 'tramo' para depurar
+        console.log(`\n--- paredesDePunto para punto: (${punto.x}, ${punto.y}) ---`);
         const walls = new Set();
+        let found = false; // Para indicar si se encontró alguna pared
+      
         for (const key in verticesPorPunto) {
           const [x, z] = key.split(",").map(Number);
-          if (Math.abs(punto.x - x) < 0.001 && Math.abs(punto.y - z) < 0.001) {
-            verticesPorPunto[key].forEach(wall => walls.add(wall));
+          const dx = Math.abs(punto.x - x);
+          const dz = Math.abs(punto.y - z);
+          console.log(`  Comparando con vértice: (${x}, ${z}), dx: ${dx}, dz: ${dz}`);
+      
+          if (dx < 0.001 && dz < 0.001) {
+            verticesPorPunto[key].forEach(wall => {
+              console.log(`    Encontrado wall: ${wall}`);
+              walls.add(wall);
+            });
+            found = true;
           }
         }
-        return Array.from(walls);
+      
+        if (!found) {
+          console.log("  No se encontraron paredes para este punto.");
+          if (tramo) {
+            console.log(`  Tramo: (${tramo.x1}, ${tramo.y1}) - (${tramo.x2}, ${tramo.y2})`);
+          }
+        }
+      
+        const wallsArray = Array.from(walls);
+        console.log(`  Paredes encontradas: ${wallsArray}`);
+        return wallsArray;
       }
         
         const paredes = tramos.map(tramo => {
