@@ -17,11 +17,15 @@
     const scaleX = (width - 2 * padding) / (maxX - minX || 1);
     const scaleY = (height - 2 * padding) / (maxY - minY || 1);
     const scale = Math.min(scaleX, scaleY);
+  
+    const offsetX = (width - ((maxX - minX) * scale)) / 2;
+    const offsetY = (height - ((maxY - minY) * scale)) / 2;
+  
     return vertices.map(({ x, y }) => ({
-      x: (x - minX) * scale + padding,
-      y: height - ((y - minY) * scale + padding)
+      x: (x - minX) * scale + offsetX,
+      y: height - ((y - minY) * scale + offsetY)  // inversión + centrado
     }));
-  }
+  }  
 
   function ordenarPorAngulo(puntos) {
     if (!puntos.length) return puntos;
@@ -103,14 +107,27 @@
         });
       }
 
+      function paredesDePunto(punto, vertices) {
+          return vertices
+            .filter(v => Math.abs(v.x - punto.x) < 0.01 && Math.abs(v.z - punto.y) < 0.01)
+            .map(v => v.wall);
+        }
+        
+        const paredes = tramos.map(tramo => {
+          const wallsP1 = paredesDePunto({ x: tramo.x1, y: tramo.y1 }, vertices);
+          const wallsP2 = paredesDePunto({ x: tramo.x2, y: tramo.y2 }, vertices);
+          const comunes = wallsP1.filter(w => wallsP2.includes(w));
+          return { ...tramo, wallId: comunes[0] || null };
+        });      
+
       const sueloNorm = normalize(ordenados, 500, 500);
-      const extremosNorm = normalize(tramos.flatMap(p => [
+      const extremosNorm = normalize(paredes.flatMap(p => [
         { x: p.x1, y: p.y1 },
         { x: p.x2, y: p.y2 }
       ]), 500, 500);
 
       let i = 0;
-      const paredesNorm = tramos.map(p => {
+      const paredesNorm = paredes.map(p => {
         const p1 = extremosNorm[i++];
         const p2 = extremosNorm[i++];
         return {
