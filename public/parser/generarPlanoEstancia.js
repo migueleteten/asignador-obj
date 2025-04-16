@@ -26,7 +26,7 @@ function generarPlanoEstancia(roomId, divId, callbackAsignar) {
   // Dibujar suelo primero
   if (Array.isArray(geometria.suelo)) {
     const suelo = document.createElementNS(svgNS, "polygon");
-    const puntos = geometria.suelo.map(p => `${p.x},${p.y}`).join(" ");
+    const puntos = geometria.suelo.map(p => `${p.x},${p.z}`).join(" ");
     suelo.setAttribute("points", puntos);
     suelo.setAttribute("fill", "#ffffff");
     suelo.setAttribute("stroke", "#aaa");
@@ -40,17 +40,17 @@ function generarPlanoEstancia(roomId, divId, callbackAsignar) {
   // Dibujar paredes
   if (Array.isArray(geometria.paredes)) {
     geometria.paredes.forEach((pared, i) => {
-      const { x1, y1, x2, y2, wallId } = pared;
+      const { x1, z1, x2, z2, wallId } = pared;
       const dx = x2 - x1;
-      const dy = y2 - y1;
+      const dy = z2 - z1;
       const distancia = Math.sqrt(dx * dx + dy * dy);
       if (distancia < 1) return; // descarta líneas muy cortas
 
       const linea = document.createElementNS(svgNS, "line");
       linea.setAttribute("x1", x1);
-      linea.setAttribute("y1", y1);
+      linea.setAttribute("z1", z1);
       linea.setAttribute("x2", x2);
-      linea.setAttribute("y2", y2);
+      linea.setAttribute("z2", z2);
       linea.setAttribute("stroke", "#aaa");
       linea.setAttribute("stroke-width", "15");
       linea.setAttribute("data-wall", wallId);
