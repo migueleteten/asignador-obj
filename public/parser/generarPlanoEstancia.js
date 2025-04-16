@@ -313,7 +313,7 @@ function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
   }
   // -----------------------------------------------------------
 
-  const offset = 4; // Desplazamiento en píxeles SVG
+  const offset = 7; // Desplazamiento en píxeles SVG
 
   const newLine = document.createElementNS(svgNS, "line");
   newLine.setAttribute('x1', (x1 + offset * nx).toFixed(2));
@@ -322,7 +322,7 @@ function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
   newLine.setAttribute('y2', (y2 + offset * ny).toFixed(2));
 
   newLine.setAttribute('stroke', color);
-  newLine.setAttribute('stroke-width', '2'); // Más fina que la pared
+  newLine.setAttribute('stroke-width', '8'); // Más fina que la pared
   newLine.setAttribute('stroke-linecap', 'round');
   newLine.setAttribute('class', 'indicador-asignacion pared-asignada'); // Clases para estilo/selección
 
