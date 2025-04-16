@@ -163,7 +163,8 @@ document.addEventListener('keydown', (event) => {
 // --- 5. Nueva Función: `realizarAsignacion` (Llamada por clicks en SVG) ---
 
 function realizarAsignacion(tipoSuperficie, idSuperficie, elementoClicado) {
-  if (!window.productoEnAsignacion || !window.botonOrigenAsignacion || !window.expedienteActual) {
+  const expedienteActual = sessionStorage.getItem("expedienteSeleccionado");
+  if (!window.productoEnAsignacion || !window.botonOrigenAsignacion || !expedienteActual) {
       console.error("Estado inválido para realizar asignación.", window.productoEnAsignacion, window.botonOrigenAsignacion, window.expedienteActual);
       cancelarAsignacion();
       return;
@@ -181,7 +182,7 @@ function realizarAsignacion(tipoSuperficie, idSuperficie, elementoClicado) {
   }
   const roomId = svgElement.getAttribute('data-room-id');
 
-  console.log(`Intentando asignar ${codigo} a ${tipoSuperficie} ${idSuperficie} en room ${roomId}`);
+  console.log(`Intentando asignar ${codigo} a ${tipoSuperficie} ${idSuperficie} en room ${roomId} para expediente ${expedienteActual}`);
 
   // --- Validar que no exista ya esta asignación EXACTA (opcional, backend también valida) ---
   const selectorExistente = `[data-asignacion-codigo="${codigo}"][data-asignacion-id="${idSuperficie}"]`;
