@@ -270,7 +270,7 @@ function realizarAsignacion(tipoSuperficie, idSuperficie, elementoClicado) {
           }
           // NO cambiar el botón original si falló
       })
-      .registrarOActualizarAsignacion(datosAsignacion);
+      .registrarAsignacionProducto(datosAsignacion);
 
   // 5. Limpiar Estado de Asignación (se hace independientemente del éxito/fallo del backend)
   cancelarAsignacion(); // Llama a la función que limpia estado y UI
