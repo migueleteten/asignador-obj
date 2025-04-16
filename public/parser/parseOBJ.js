@@ -78,6 +78,12 @@
 
     window.geometriaPorRoom = {};
 
+    // Imprimimos verticesPorPunto
+    console.log("\n--- verticesPorPunto ---");
+    console.log(verticesPorPunto);
+
+    // Imprimimos algunos vértices originales
+    console.log("\n--- Primeros 10 Vértices Originales ---");
     for (let room in ceilingPorRoom) {
       const verticesCrudos = ceilingPorRoom[room];
       const puntosXZ = verticesCrudos.map(v => ({ x: +(-v.x).toFixed(5), y: +(-v.z).toFixed(5) }));
