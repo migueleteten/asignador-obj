@@ -28,9 +28,10 @@ function generarPlanoEstancia(roomId, divId, callbackAsignar) {
     const suelo = document.createElementNS(svgNS, "polygon");
     const puntos = geometria.suelo.map(p => `${p.x},${p.y}`).join(" ");
     suelo.setAttribute("points", puntos);
-    suelo.setAttribute("fill", "#eee");
-    suelo.setAttribute("stroke", "#ccc");
-    suelo.setAttribute("stroke-width", "1");
+    suelo.setAttribute("fill", "#ffffff");
+    suelo.setAttribute("stroke", "#aaa");
+    suelo.setAttribute("stroke-width", "15");
+    suelo.setAttribute("class", "suelo");
     suelo.style.cursor = "pointer";
     suelo.addEventListener("click", () => callbackAsignar("floor", roomId));
     svg.appendChild(suelo);
@@ -51,7 +52,7 @@ function generarPlanoEstancia(roomId, divId, callbackAsignar) {
       linea.setAttribute("x2", x2);
       linea.setAttribute("y2", y2);
       linea.setAttribute("stroke", "#aaa");
-      linea.setAttribute("stroke-width", "6");
+      linea.setAttribute("stroke-width", "15");
       linea.setAttribute("data-wall", wallId);
       linea.setAttribute("class", "pared");
       linea.style.cursor = "pointer";
