@@ -1,278 +1,275 @@
 // public/parser/parseOBJ.js
-
 (function () {
-  // --- getBounds, normalize, ordenarPorAngulo (keep as they are) ---
+
+  // Helper function to get bounding box of vertices (using x, y)
   function getBounds(vertices) {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    // In the context of ceiling processing, we use x and z
-    vertices.forEach(({ x, z }) => {
+    vertices.forEach(({ x, y }) => {
       if (x < minX) minX = x;
-      if (z < minY) minY = z; // Using z for the 'y' bound in 2D projection
+      if (y < minY) minY = y;
       if (x > maxX) maxX = x;
-      if (z > maxY) maxY = z; // Using z for the 'y' bound in 2D projection
+      if (y > maxY) maxY = y;
     });
-    // Ensure min/max are numbers, default to 0 if infinite
-     minX = isFinite(minX) ? minX : 0;
-     minY = isFinite(minY) ? minY : 0;
-     maxX = isFinite(maxX) ? maxX : 0;
-     maxY = isFinite(maxY) ? maxY : 0;
     return { minX, minY, maxX, maxY };
   }
 
-  function normalize(vertices, width, height, padding = 5) {
-    // Use x and z for bounds calculation
-    const { minX, minY: minZ, maxX, maxY: maxZ } = getBounds(vertices);
+  // Helper function to normalize vertices to fit within width/height with padding
+  // Also handles Y-axis inversion for screen coordinates and applies transformations
+  function normalize(vertices, width, height, padding = 20) { // Increased padding slightly
+    if (!vertices || vertices.length === 0) {
+        console.warn("Normalize called with empty or invalid vertices array.");
+        return [];
+    }
+    const { minX, minY, maxX, maxY } = getBounds(vertices);
 
-    // Handle cases where max == min (single point or straight line)
-    const rangeX = maxX - minX || 1;
-    const rangeZ = maxZ - minZ || 1; // Using Z range
+    // Handle cases where points are collinear or coincident
+    const rangeX = maxX - minX;
+    const rangeY = maxY - minY;
+
+    // Avoid division by zero or near-zero if all points are the same or on a line
+    const effectiveRangeX = rangeX < 1e-6 ? 1 : rangeX;
+    const effectiveRangeY = rangeY < 1e-6 ? 1 : rangeY;
 
     const availableWidth = width - 2 * padding;
     const availableHeight = height - 2 * padding;
 
-    const scaleX = availableWidth / rangeX;
-    const scaleY = availableHeight / rangeZ; // Use Z range for Y scaling
-    const scale = Math.min(scaleX, scaleY);
+    // Calculate scale, ensuring it's positive
+    const scaleX = availableWidth > 0 ? availableWidth / effectiveRangeX : 1;
+    const scaleY = availableHeight > 0 ? availableHeight / effectiveRangeY : 1;
+    const scale = Math.max(1e-6, Math.min(scaleX, scaleY)); // Ensure scale is positive
 
-    // Recalculate offsets based on the final scale
-    const offsetX = (width - (rangeX * scale)) / 2;
-    const offsetY = (height - (rangeZ * scale)) / 2; // Use Z range for Y offset
+    // Calculate offsets for centering
+    const offsetX = padding + (availableWidth - rangeX * scale) / 2;
+    const offsetY = padding + (availableHeight - rangeY * scale) / 2;
 
-    return vertices.map(({ x, z }) => ({ // Map uses x and z
-      // Apply normalization based on original minX/minZ
-      // The inversion (width - ..., height - ...) is often for screen coordinates (top-left origin)
+    return vertices.map(({ x, y }) => ({
+      // Apply transformation: (x - minX) * scale centers relative to min point, then add offsetX
       x: (x - minX) * scale + offsetX,
-      y: (z - minZ) * scale + offsetY  // Map z to y, apply Z normalization
-      // If you need inverted Y for screen coordinates (optional):
-      // y: height - ((z - minZ) * scale + offsetY)
+      // Apply transformation and Y-inversion:
+      // 1. (y - minY) * scale: Scale relative distance from min Y
+      // 2. + offsetY: Add bottom/left padding and centering offset
+      // 3. height - (...): Invert Y axis so positive Y goes down
+      y: height - ((y - minY) * scale + offsetY)
     }));
   }
 
+
+  // Helper function to order points by angle around their centroid
   function ordenarPorAngulo(puntos) {
-      if (!puntos || puntos.length < 3) return puntos || []; // Handle null, undefined or insufficient points
-      // Use x and z for centroid calculation
-      const cx = puntos.reduce((sum, p) => sum + p.x, 0) / puntos.length;
-      const cz = puntos.reduce((sum, p) => sum + p.z, 0) / puntos.length; // Use z for centroid calculation
-      return puntos.slice().sort((a, b) => {
-          // Use x and z for angle calculation
-          const angA = Math.atan2(a.z - cz, a.x - cx); // Use z for y-component
-          const angB = Math.atan2(b.z - cz, b.x - cx); // Use z for y-component
-          return angA - angB;
-      });
+    if (!puntos || puntos.length < 3) return puntos; // Need at least 3 points for a polygon centroid
+
+    // Calculate centroid
+    let sumX = 0, sumY = 0;
+    puntos.forEach(p => {
+        sumX += p.x;
+        sumY += p.y;
+    });
+    const cx = sumX / puntos.length;
+    const cy = sumY / puntos.length;
+
+    // Sort based on angle relative to centroid
+    return puntos.slice().sort((a, b) => {
+      const angA = Math.atan2(a.y - cy, a.x - cx);
+      const angB = Math.atan2(b.y - cy, b.x - cx);
+      return angA - angB;
+    });
   }
-  // --- end of utility functions ---
 
-  // ***** MODIFIED FUNCTION *****
-  // Renamed second parameter for clarity and corrected lookup logic
-  function paredesDePunto(puntoNegado, verticesPorPuntoMap) {
-    // This point has NEGATED coordinates from the ceiling processing
-    // console.log(`\n--- paredesDePunto para punto negado: (${puntoNegado.x}, ${puntoNegado.z}) ---`);
-    const walls = new Set();
-
-    // Calculate the ORIGINAL coordinates to use as the key
-    // Handle potential -0 issues by adding a small epsilon or checking specifically
-    const originalX = (puntoNegado.x === 0) ? 0 : -puntoNegado.x;
-    const originalZ = (puntoNegado.z === 0) ? 0 : -puntoNegado.z;
-
-    // Create the key using the calculated ORIGINAL coordinates, matching the format used when populating the map
-    const puntoKey = `${originalX.toFixed(5)},${originalZ.toFixed(5)}`;
-    // console.log(`   Buscando clave original: ${puntoKey}`); // Debug log
-
-    // Look up using the original coordinate key
-    if (verticesPorPuntoMap[puntoKey]) {
-      verticesPorPuntoMap[puntoKey].forEach(wall => {
-        // console.log(`     Encontrado wall: ${wall}`); // Debug log
-        walls.add(wall);
-      });
-    } else {
-        // console.log(`     Clave ${puntoKey} NO encontrada en verticesPorPuntoMap.`); // Debug log
-    }
-
-    const wallsArray = Array.from(walls);
-    // console.log(`   Paredes encontradas para clave ${puntoKey}: ${wallsArray.length > 0 ? wallsArray.join(', ') : 'Ninguna'}`); // Debug log
-    return wallsArray;
-  }
-  // ***** END OF MODIFIED FUNCTION *****
-
-
-  window.parseOBJ = function (textoOBJ) {
-    console.log("📄 .OBJ recibido:", textoOBJ.slice(0, 300));
+  // --- Main Parsing Function ---
+  window.parseOBJ = function (textoOBJ, width = 500, height = 500) {
+    console.log("📄 .OBJ recibido (primeros 300 chars):", textoOBJ.slice(0, 300));
 
     const lines = textoOBJ.split("\n");
-    // const vertices = []; // This was unused, can be removed
-    const ceilingPorRoom = {};
-    const verticesPorPunto = {}; // Map: "originalX,originalZ" -> Set(wallId1, wallId2, ...)
+    const ceilingVerticesPorRoom = {}; // Stores raw {x, y, z} vertices for ceiling groups
+    const verticesPorPuntoOriginal = {}; // Maps original "x,z" coords to Set<wallId>
+    const precisionFactor = 10000; // For creating reliable keys from floats
+
     let currentRoom = null;
     let currentWall = null;
-    let parsingCeiling = false;
+    let isParsingCeiling = false;
 
     lines.forEach(line => {
-      line = line.trim(); // Trim whitespace
-      if (line.startsWith("g ")) {
-        const partes = line.split(/\s+/);
-        const room = partes.find(p => /^room\d+$/i.test(p));
-        currentRoom = room ? room.toLowerCase() : null;
-        const wall = partes.find(p => /^wall\d+$/i.test(p));
-        const isCeiling = partes.some(p => p.toLowerCase() === "ceiling"); // More robust check
+      const trimmedLine = line.trim();
+      if (trimmedLine.length === 0 || trimmedLine.startsWith("#")) {
+        return; // Skip empty lines and comments
+      }
 
-        if (currentRoom) {
-          parsingCeiling = isCeiling;
-          if (parsingCeiling && !ceilingPorRoom[currentRoom]) {
-            ceilingPorRoom[currentRoom] = [];
+      if (trimmedLine.startsWith("g ")) {
+        const partes = trimmedLine.split(/\s+/);
+        // Reset state for the new group
+        currentRoom = null;
+        currentWall = null;
+        isParsingCeiling = false;
+
+        partes.forEach(p => {
+          const pLower = p.toLowerCase();
+          if (/^room\d+$/.test(pLower)) {
+            currentRoom = pLower;
+          } else if (/^wall\d+$/.test(pLower)) {
+            currentWall = pLower;
+          } else if (pLower === 'ceiling') {
+            isParsingCeiling = true;
           }
-          // Reset currentWall if it's a ceiling group or no wall is specified
-          currentWall = (!parsingCeiling && wall) ? wall.toLowerCase() : null;
-        } else {
-          // Reset context if not in a room group
-          parsingCeiling = false;
-          currentWall = null;
+        });
+
+        // Initialize room if it's the first time we see it in a ceiling context
+        if (currentRoom && isParsingCeiling && !ceilingVerticesPorRoom[currentRoom]) {
+          ceilingVerticesPorRoom[currentRoom] = [];
+        }
+
+      } else if (trimmedLine.startsWith("v ")) {
+        try {
+            const [, xStr, yStr, zStr] = trimmedLine.split(/\s+/);
+            // Use parseFloat for robustness, handle potential errors
+            const x = parseFloat(xStr);
+            const y = parseFloat(yStr);
+            const z = parseFloat(zStr);
+
+            if (isNaN(x) || isNaN(y) || isNaN(z)) {
+               // console.warn("Skipping invalid vertex line:", trimmedLine);
+                return;
+            }
+
+            // Round to avoid floating point precision issues in keys
+            const xFixed = Math.round(x * precisionFactor) / precisionFactor;
+            const zFixed = Math.round(z * precisionFactor) / precisionFactor;
+            const vertice = { x: xFixed, y: parseFloat(y.toFixed(5)), z: zFixed }; // Keep original Y for potential future use
+
+            if (isParsingCeiling && currentRoom) {
+              // Store the vertex if we are inside a 'g roomX ceiling' block
+              ceilingVerticesPorRoom[currentRoom].push(vertice);
+            }
+
+            // Regardless of ceiling, if this vertex is part of a wall, record it
+            // This builds the lookup for wall association later
+            if (currentWall) { // Only associate if the vertex is explicitly within a wall group
+                const key = `${vertice.x},${vertice.z}`; // Use ORIGINAL x, z for the lookup key
+                if (!verticesPorPuntoOriginal[key]) {
+                verticesPorPuntoOriginal[key] = new Set();
+                }
+                verticesPorPuntoOriginal[key].add(currentWall);
+            }
+        } catch (e) {
+           // console.error("Error parsing vertex line:", trimmedLine, e);
         }
       }
-      else if (line.startsWith("v ")) {
-        // Make sure we are in a relevant context (room)
-        if (!currentRoom) continue;
-
-        const parts = line.split(/\s+/);
-        if (parts.length < 4) continue; // Need at least v x y z
-
-        // Parse coordinates, handle potential parsing errors
-        const x = parseFloat(parts[1]);
-        const y = parseFloat(parts[2]);
-        const z = parseFloat(parts[3]);
-
-        if (isNaN(x) || isNaN(y) || isNaN(z)) continue; // Skip if coordinates are not valid numbers
-
-        const vertice = { x: +x.toFixed(5), y: +y.toFixed(5), z: +z.toFixed(5) };
-
-        if (parsingCeiling) {
-          ceilingPorRoom[currentRoom].push(vertice);
-        } else if (currentWall) { // Only associate with walls, not just any non-ceiling vertex
-          // Key uses ORIGINAL X and Z coordinates
-          const key = `${vertice.x},${vertice.z}`;
-          if (!verticesPorPunto[key]) {
-            verticesPorPunto[key] = new Set();
-          }
-          verticesPorPunto[key].add(currentWall);
-        }
-      }
+      // Ignore other line types like 'vn', 'vt', 'f', 's', 'usemtl', etc. for this parser
     });
 
+    console.log("🔍 Vertices por punto original:", verticesPorPuntoOriginal); // Debug log
+
+    // --- Process Geometry Per Room ---
     window.geometriaPorRoom = {};
 
-    console.log("\n--- verticesPorPunto (Mapa de Vértices Originales a Paredes) ---");
-    // Log the map content for verification
-    for (const key in verticesPorPunto) {
-      console.log(`  "${key}": {${Array.from(verticesPorPunto[key]).join(', ')}}`);
-    }
-
-
-    console.log("\n--- Procesando Rooms ---");
-    for (let room in ceilingPorRoom) {
-      console.log(`\n--- Procesando ${room} ---`);
-      const verticesCrudos = ceilingPorRoom[room]; // Original {x,y,z} ceiling vertices
-      if (!verticesCrudos || verticesCrudos.length === 0) {
-        console.log(`   Skipping ${room}: No ceiling vertices found.`);
-        continue;
-      }
-
-      // 1. Create points with NEGATED X/Z for polygon shape (as before)
-      const puntosXZNegados = verticesCrudos.map(v => ({
-        x: +(v.x === 0 ? 0 : -v.x).toFixed(5), // Handle -0
-        z: +(v.z === 0 ? 0 : -v.z).toFixed(5)  // Handle -0
-      }));
-
-      // 2. Filter for unique negated points
-      const claves = new Set();
-      const puntosUnicosNegados = puntosXZNegados.filter(p => {
-        const clave = `${p.x},${p.z}`;
-        if (claves.has(clave)) return false;
-        claves.add(clave);
-        return true;
-      });
-
-      if (puntosUnicosNegados.length < 3) {
-          console.log(`   Skipping ${room}: Not enough unique ceiling points (${puntosUnicosNegados.length}) for a polygon.`);
+    for (const room in ceilingVerticesPorRoom) {
+      const verticesCrudos = ceilingVerticesPorRoom[room];
+      if (verticesCrudos.length === 0) {
+          console.warn(`Room ${room} tiene grupo ceiling pero no vertices 'v'. Saltando.`);
           continue;
       }
 
-      // 3. Sort unique negated points by angle
-      const ordenadosNegados = ordenarPorAngulo(puntosUnicosNegados);
+      // 1. & 6. Obtener vértices del techo (ceiling) y aplicar transformación inicial
+      //    OBJ(x, z) -> Intermediate(x', y') = (-x, -z) -> Rotación 180º en plano XZ
+      //    Usamos estos puntos transformados (x', y') para el resto del proceso (unicos, ordenar, normalizar)
+      const puntosXZTransformados = verticesCrudos.map(v => ({
+        x: -v.x, // Negate X
+        y: -v.z  // Negate Z (becomes intermediate Y)
+      }));
 
-      // 4. Create segments (tramos) from the sorted NEGATED points
-      const tramos = [];
-      for (let i = 0; i < ordenadosNegados.length; i++) {
-        const a = ordenadosNegados[i];
-        const b = ordenadosNegados[(i + 1) % ordenadosNegados.length];
-        tramos.push({ x1: a.x, z1: a.z, x2: b.x, z2: b.z });
-      }
-      console.log(`   ${room}: ${ordenadosNegados.length} puntos únicos de techo (negados), ${tramos.length} tramos creados.`);
-
-      // 5. Find wallId for each tramo using the `paredesDePunto` function (which now handles the coordinate conversion)
-      const paredesConId = tramos.map(tramo => {
-        // Pass the NEGATED points from the tramo and the map keyed by ORIGINAL coordinates
-        const wallsP1 = paredesDePunto({ x: tramo.x1, z: tramo.z1 }, verticesPorPunto);
-        const wallsP2 = paredesDePunto({ x: tramo.x2, z: tramo.z2 }, verticesPorPunto);
-
-        // Find walls common to both endpoints of the segment
-        const comunes = wallsP1.filter(w => wallsP2.includes(w));
-
-        // Log details for debugging wall assignment
-        // console.log(`    Tramo (${tramo.x1}, ${tramo.z1}) -> (${tramo.x2}, ${tramo.z2}): Walls P1=[${wallsP1.join(',')}] Walls P2=[${wallsP2.join(',')}] Comunes=[${comunes.join(',')}]`);
-
-        // Assign the first common wall found, or null if none
-        const assignedWallId = comunes[0] || null;
-        if (!assignedWallId) {
-             console.warn(`      ¡Advertencia! No se encontró wall común para el tramo (${tramo.x1}, ${tramo.z1}) -> (${tramo.x2}, ${tramo.z2})`);
-        }
-
-        return { ...tramo, wallId: assignedWallId };
+      // 2. Filtrar por valores únicos (usando los puntos transformados)
+      const clavesUnicas = new Set();
+      const puntosUnicos = puntosXZTransformados.filter(p => {
+        // Use fixed precision for uniqueness check
+        const clave = `${p.x.toFixed(4)},${p.y.toFixed(4)}`;
+        if (clavesUnicas.has(clave)) return false;
+        clavesUnicas.add(clave);
+        return true;
       });
 
-      // 6. Normalize the geometry FOR DRAWING using the NEGATED points
-      // Normalize the floor polygon points (sorted unique negated points)
-      const sueloNorm = normalize(ordenadosNegados, 500, 500); // Use 'z' for y-axis internally in normalize
+       if (puntosUnicos.length < 3) {
+           console.warn(`Room ${room} tiene menos de 3 puntos únicos en el techo después del filtrado (${puntosUnicos.length}). Saltando.`);
+           continue;
+       }
 
-      // Prepare points for wall normalization (use unique negated points directly)
-      // The order in 'paredesConId' matches the order in 'ordenadosNegados'
-      const extremosParaNormalizar = ordenadosNegados.map(p => ({ x: p.x, z: p.z }));
-      const extremosNorm = normalize(extremosParaNormalizar, 500, 500); // Normalize wall endpoints
+      // 3. Ordenar por ángulo ATAN2 (usando los puntos transformados)
+      const puntosOrdenados = ordenarPorAngulo(puntosUnicos);
 
-      // Map normalized endpoints back to walls, preserving wallId
-      const paredesNorm = [];
-      for (let i = 0; i < paredesConId.length; i++) {
-          const paredOriginal = paredesConId[i]; // Contains original tramo coords and wallId
-          const p1Norm = extremosNorm[i]; // Normalized point corresponding to paredOriginal.(x1, z1)
-          const p2Norm = extremosNorm[(i + 1) % extremosNorm.length]; // Normalized point corresponding to paredOriginal.(x2, z2)
+      // 4. & 5. Crear tramos y asignar paredes
+      const tramos = [];
+      for (let i = 0; i < puntosOrdenados.length; i++) {
+        const p1 = puntosOrdenados[i];
+        const p2 = puntosOrdenados[(i + 1) % puntosOrdenados.length]; // Wrap around for the last segment
 
-          // Use the normalized 'y' which corresponds to 'z'
-          paredesNorm.push({
-              x1: p1Norm.x, z1: p1Norm.y, // Store normalized z in z1
-              x2: p2Norm.x, z2: p2Norm.y, // Store normalized z in z2
-              wallId: paredOriginal.wallId
-          });
+        // Para buscar en verticesPorPuntoOriginal, necesitamos las coordenadas ORIGINALES (x, z)
+        // Como p1.x = -originalX y p1.y = -originalZ, entonces originalX = -p1.x y originalZ = -p1.y
+        const originalX1 = -p1.x;
+        const originalZ1 = -p1.y;
+        const originalX2 = -p2.x;
+        const originalZ2 = -p2.y;
+
+        // Recrear las claves usando las coordenadas originales redondeadas como se hizo al poblar el lookup
+        const keyP1 = `${Math.round(originalX1 * precisionFactor) / precisionFactor},${Math.round(originalZ1 * precisionFactor) / precisionFactor}`;
+        const keyP2 = `${Math.round(originalX2 * precisionFactor) / precisionFactor},${Math.round(originalZ2 * precisionFactor) / precisionFactor}`;
+
+        // 5.1 & 5.2 Obtener lista de paredes para cada punto (original)
+        const wallsP1 = verticesPorPuntoOriginal[keyP1] || new Set();
+        const wallsP2 = verticesPorPuntoOriginal[keyP2] || new Set();
+
+        // 5.3 Comparar y obtener la pared común
+        const comunes = [...wallsP1].filter(w => wallsP2.has(w));
+        const wallId = comunes.length > 0 ? comunes[0] : null; // Tomar la primera si hay varias (o null)
+
+        // Almacenar el tramo con sus puntos TRANSFORMADOS (los que se usarán para normalizar)
+        tramos.push({
+          x1: p1.x, y1: p1.y, // Coords transformadas (-x, -z)
+          x2: p2.x, y2: p2.y, // Coords transformadas (-x, -z)
+          wallId: wallId
+        });
+
+        // Debug log per segment
+        // console.log(`  Tramo ${i}: (${p1.x.toFixed(2)}, ${p1.y.toFixed(2)})[${keyP1}] -> (${p2.x.toFixed(2)}, ${p2.y.toFixed(2)})[${keyP2}] | Walls P1: {${[...wallsP1]}} | Walls P2: {${[...wallsP2]}} | Común: ${wallId}`);
       }
 
-      console.log(`   ${room}: Suelo Normalizado (${sueloNorm.length} puntos), Paredes Normalizadas (${paredesNorm.length} tramos con IDs)`);
-      // Debug: Log first few normalized points/walls
-       if (sueloNorm.length > 0) console.log(`      Ej. Suelo Norm: (${sueloNorm[0].x.toFixed(2)}, ${sueloNorm[0].y.toFixed(2)})`);
-       if (paredesNorm.length > 0) console.log(`      Ej. Pared Norm: (${paredesNorm[0].x1.toFixed(2)}, ${paredesNorm[0].z1.toFixed(2)}) -> (${paredesNorm[0].x2.toFixed(2)}, ${paredesNorm[0].z2.toFixed(2)}) ID: ${paredesNorm[0].wallId}`);
+      // 7. Construir el objeto para el SVG (Normalización)
+      // Normalizamos los puntos del *suelo* (que son los puntos únicos ordenados y transformados)
+      const sueloNormalizado = normalize(puntosOrdenados, width, height);
+
+      // Normalizamos los *extremos de las paredes* (tramos)
+      // Primero, creamos una lista plana de todos los puntos extremos de los tramos
+      const puntosParedes = tramos.flatMap(t => [{ x: t.x1, y: t.y1 }, { x: t.x2, y: t.y2 }]);
+      const extremosNormalizados = normalize(puntosParedes, width, height);
+
+       if (!extremosNormalizados || extremosNormalizados.length !== tramos.length * 2) {
+            console.error(`Error en la normalización de paredes para room ${room}. Se esperaban ${tramos.length * 2} puntos normalizados, se obtuvieron ${extremosNormalizados?.length}. Saltando paredes.`);
+            window.geometriaPorRoom[room] = {
+                 suelo: sueloNormalizado,
+                 paredes: [] // Dejar paredes vacío si la normalización falló
+            };
+            continue; // Pasar al siguiente room
+       }
 
 
-      // Store the final normalized data
+      // Reconstruimos los tramos (paredes) con las coordenadas normalizadas
+      const paredesNormalizadas = [];
+      for (let i = 0; i < tramos.length; i++) {
+        const p1Norm = extremosNormalizados[i * 2];
+        const p2Norm = extremosNormalizados[i * 2 + 1];
+        paredesNormalizadas.push({
+          x1: p1Norm.x, y1: p1Norm.y,
+          x2: p2Norm.x, y2: p2Norm.y,
+          wallId: tramos[i].wallId // Mantener el wallId asociado
+        });
+      }
+
+      // Almacenar resultado final
       window.geometriaPorRoom[room] = {
-        suelo: sueloNorm, // Use normalized points {x, y} where y is derived from z
-        paredes: paredesNorm // Use normalized segments {x1, z1, x2, z2, wallId} where z1/z2 are derived from z
+        suelo: sueloNormalizado,     // Polígono del suelo normalizado
+        paredes: paredesNormalizadas // Segmentos de pared normalizados con wallId
       };
     }
 
-    console.log("✅ OBJ parseado y ceiling interpretado. Rooms procesados:", Object.keys(window.geometriaPorRoom));
-     // Log final structure for a sample room if available
-     const firstRoom = Object.keys(window.geometriaPorRoom)[0];
-     if (firstRoom) {
-         console.log(`\n--- Geometría Final para ${firstRoom} ---`);
-         console.log("  Suelo (primeros 5 puntos):", window.geometriaPorRoom[firstRoom].suelo.slice(0, 5));
-         console.log("  Paredes (primeros 5 tramos):", window.geometriaPorRoom[firstRoom].paredes.slice(0, 5));
-     }
-
+    console.log("✅ OBJ parseado y geometría interpretada. Rooms:", Object.keys(window.geometriaPorRoom));
+    console.log(" Geometría final:", window.geometriaPorRoom); // Log final data
   };
-})();
+
+})(); // Fin IIFE
