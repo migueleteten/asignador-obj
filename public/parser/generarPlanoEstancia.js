@@ -278,10 +278,6 @@ async function realizarAsignacion(
             );
         }
 
-        if (elementoVisualAsignacion && miniFormElement) {
-          miniFormElement.dataset.visualElementId = elementoVisualAsignacion.id; // Guarda el ID del SVG en el form
-        }
-
         // 2. Crear el Mini-Formulario UI (¡Este es el paso que falta!)
         if (elementoVisualAsignacion) {
           // --- !! PASO SIGUIENTE: IMPLEMENTAR ESTO !! ---
@@ -298,8 +294,29 @@ async function realizarAsignacion(
               codigoProducto
             );
             if (miniFormElement) {
-              // attachListenersToMiniForm(miniFormElement.id); // Adjuntar listeners (Paso futuro)
+                console.log(`Mini-form ${miniFormElement.id} creado.`);
+                // Enlazar el ID del indicador visual al dataset del formulario
+                miniFormElement.dataset.visualElementId = elementoVisualAsignacion.id;
+                console.log(` - Enlazado a visualElementId: ${elementoVisualAsignacion.id}`);
+
+                // Adjuntar Listeners (Paso futuro)
+                attachListenersToMiniForm(miniFormElement.id);
+
+                // Añadir listener al elemento visual para que pueda borrar usando el ID del form
+                // (Asegurarse que handleDeleteSurfaceAssignment usa el formId)
+                elementoVisualAsignacion.addEventListener("click", (event) => {
+                    event.stopPropagation();
+                     console.log(`Clic en indicador visual ${elementoVisualAsignacion.id}, llamando a borrar form ${miniFormElement.id}`);
+                     handleDeleteSurfaceAssignment(miniFormElement.id); // Llamar con el ID del FORM
+                });
+                 elementoVisualAsignacion.style.cursor = "pointer";
+
+            } else {
+                console.error("Falló la creación del elemento mini-form.");
+                 // Si falla la creación del form, ¿deberíamos borrar el indicador visual que acabamos de crear?
+                 // elementoVisualAsignacion.remove(); // Opcional: limpiar indicador si form falla
             }
+             // --- FIN MOVIDO AQUÍ ---
           } else {
             console.error(
               `No se encontró el contenedor para mini-forms de ${codigoProducto} en ${roomId}`
