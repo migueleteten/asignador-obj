@@ -315,7 +315,7 @@ function findMiniFormContainer(roomId, codigoProducto) {
   }
   // 3. Buscar DENTRO de ese <details> el div contenedor específico
   const selector = `.mini-forms-container[data-codigo-producto="${codigoProducto}"]`;
-  const contenedor = detailElement.querySelector(selector);
+  const contenedor = cromoElement.querySelector(selector);
 
   if (!contenedor) {
       // Este log es útil si el contenedor no se creó bien en procesarAsignaciones
