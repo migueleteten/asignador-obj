@@ -1254,9 +1254,9 @@ function restaurarAsignacionesVisuales(asignacionEnriquecida, divIdPlano) {
         return;
     }
 
-    console.log(`Restaurando ${detallesSuperficie.length} detalles para ${codigoProducto} en <span class="math-inline">\{roomId\} \(</span>{divIdPlano})`);
+    console.log(`Restaurando ${detallesSuperficie.length} detalles para ${codigoProducto} en ${roomId} (${divIdPlano})`);
 
-    const svgElement = document.querySelector(`#<span class="math-inline">\{divIdPlano\} \> svg\[data\-room\-id\="</span>{roomId}"]`);
+    const svgElement = document.querySelector(`#<span class=${divIdPlano} svg[data-room-id="${roomId}"]`);
     if (!svgElement) {
         console.error(`restaurar: No se encontró SVG para ${roomId} en ${divIdPlano}`);
         return;
