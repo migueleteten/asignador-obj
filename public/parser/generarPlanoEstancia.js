@@ -329,45 +329,56 @@ function findMiniFormContainer(roomId, codigoProducto) {
  * @param {HTMLElement} addButton - El botón "+" que fue clickeado.
  * @param {string} formId - El ID del mini-form padre.
  */
-function addHueco(addButton, formId) {
+// --- DENTRO de generarPlanoEstancia.js ---
+
+function addHueco(addButton, formId) { // Asegúrate que la llamada en HTML es addHueco(this, 'formId')
     const divForm = document.getElementById(formId);
-    if (!divForm) return;
+    if (!divForm) {
+        console.error("addHueco: No se encontró el divForm con ID:", formId);
+        return;
+    }
 
     const huecosContainer = divForm.querySelector('.huecos-container');
-    if (!huecosContainer) return;
+    if (!huecosContainer) {
+         console.error("addHueco: No se encontró .huecos-container dentro de:", formId);
+        return;
+    }
 
     const existingHuecos = huecosContainer.querySelectorAll('.hueco-row');
-    const newIndex = existingHuecos.length; // El índice del nuevo hueco
+    const newIndex = existingHuecos.length;
 
-    const huecoRowId = `<span class="math-inline">${formId}-hueco-${newIndex}</span>`;
+    // CORREGIDO: Generar el ID como un string limpio
+    const huecoRowId = `${formId}-hueco-${newIndex}`;
 
     // Crear la nueva fila
     const newRow = document.createElement('div');
     newRow.className = 'hueco-row';
-    newRow.id = huecoRowId;
+    newRow.id = huecoRowId; // Asignar ID limpio
     newRow.dataset.huecoIndex = newIndex;
+
+    // CORREGIDO: innerHTML usando backticks y variables correctamente interpoladas
     newRow.innerHTML = `
         <label>H${newIndex + 1} (m):</label>
         L: <input type="number" class="hueco-input" data-prop="largo" step="0.01" min="0" value="" placeholder="Largo">
         &times; Al: <input type="number" class="hueco-input" data-prop="alto" step="0.01" min="0" value="" placeholder="Alto">
         <button type="button" class="remove-hueco-btn" title="Eliminar Hueco" onclick="removeHueco('${huecoRowId}', '${formId}')">Eliminar hueco</button>
     `;
+    // Asegúrate que las comillas simples ' rodean a ${huecoRowId} y ${formId} dentro del onclick
 
     huecosContainer.appendChild(newRow);
+    console.log(`Fila de hueco ${huecoRowId} añadida.`);
 
-    // --- IMPORTANTE: Adjuntar listeners a los NUEVOS inputs ---
-    // Idealmente, la función attachListenersToMiniForm debería poder re-ejecutarse
-    // o usar delegación de eventos. Por ahora, añadimos listeners directamente:
+    // Adjuntar listeners a los NUEVOS inputs
     const newInputs = newRow.querySelectorAll('.hueco-input');
     newInputs.forEach(input => {
-         input.addEventListener('input', debounce(handleMiniFormInputChange, 500)); // Usar debounce
-         input.addEventListener('change', handleMiniFormInputChange); // Guardar en change también por si acaso
-         // Pasar referencia al form o su ID al handler si es necesario
+         // Usamos dataset para asociar al form padre
          input.dataset.formId = formId;
+         input.addEventListener('input', debounce(handleMiniFormInputChange, 800)); // Debounce un poco más largo quizás
+         input.addEventListener('change', handleMiniFormInputChange); // Guardar al perder foco también
     });
 
-     // Opcional: Deshabilitar el botón "+" anterior si queremos solo uno al final?
-     // addButton.disabled = true; // Podría complicar la lógica si se borran huecos
+    // Opcional: Mover el foco al primer input del nuevo hueco
+    newRow.querySelector('input[data-prop="largo"]')?.focus();
 }
 
 // --- NECESITARÁS ESTA FUNCIÓN DEBNounce (o una similar) ---
