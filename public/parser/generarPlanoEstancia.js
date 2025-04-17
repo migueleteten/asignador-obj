@@ -302,6 +302,9 @@ async function realizarAsignacion(
                 // Adjuntar Listeners (Paso futuro)
                 attachListenersToMiniForm(miniFormElement.id);
 
+                // Actualiza el display de cantidad total del producto AHORA
+                updateTotalQuantityDisplay(codigoProducto);                
+
                 // Añadir listener al elemento visual para que pueda borrar usando el ID del form
                 // (Asegurarse que handleDeleteSurfaceAssignment usa el formId)
                 elementoVisualAsignacion.addEventListener("click", (event) => {
@@ -741,7 +744,7 @@ function handleDeleteSurfaceAssignment(formId) {
         // --- CORREGIDO: Buscar por ID único ---
         const visualElement = document.getElementById(visualId); // Buscar por ID
         if (visualElement) {
-          console.log("Eliminando indicador visual:", visualElement.id);
+          console.log("Eliminando indicador visual:", visualId);
           visualElement.remove();
         } else {
           console.warn(
@@ -1238,123 +1241,93 @@ function restaurarBotonAsignar(codigo) {
 /**
  * Lee los detalles de superficie de una asignación enriquecida
  * y crea los indicadores visuales y mini-forms correspondientes.
- * SE LLAMA DESPUÉS DE QUE EL PLANO SVG Y LOS CROMOS/CONTENEDORES ESTÉN EN EL DOM.
  * @param {object} asignacionEnriquecida - El objeto asignación con el array `detallesSuperficie`.
  * @param {string} divIdPlano - El ID del div que contiene el SVG del plano.
  */
 function restaurarAsignacionesVisuales(asignacionEnriquecida, divIdPlano) {
-  const {
-    codigoProducto,
-    estancia: roomId,
-    detallesSuperficie,
-    tipo,
-  } = asignacionEnriquecida;
-  const esTipoEspecial = [
-    "Revestimiento cerámico",
-    "Pavimento laminado",
-    "Pavimento vinílico",
-  ].includes(tipo);
+    const { codigoProducto, estancia: roomId, detallesSuperficie, tipo } = asignacionEnriquecida;
+    const esTipoEspecial = ["Revestimiento cerámico", "Pavimento laminado", "Pavimento vinílico"].includes(tipo);
 
-  // Solo procesar si es tipo especial Y tiene detalles
-  if (
-    !esTipoEspecial ||
-    !Array.isArray(detallesSuperficie) ||
-    detallesSuperficie.length === 0
-  ) {
-    return;
-  }
-
-  console.log(
-    `Restaurando ${detallesSuperficie.length} detalles para ${codigoProducto} en ${roomId}`
-  );
-
-  const svgElement = document.querySelector(
-    `#<span class="math-inline">\{divIdPlano\} \> svg\[data\-room\-id\="</span>{roomId}"]`
-  );
-  if (!svgElement) {
-    console.error(
-      `restaurar: No se encontró SVG para ${roomId} en ${divIdPlano}`
-    );
-    return;
-  }
-
-  // Encontrar el contenedor para los mini-forms de este producto
-  const contenedorFormularios = findMiniFormContainer(roomId, codigoProducto);
-  if (!contenedorFormularios) {
-    console.error(
-      `restaurar: No se encontró contenedor de mini-forms para ${codigoProducto}`
-    );
-    return;
-  }
-
-  // Necesitamos el color asociado a este producto en la UI
-  let color = "#808080"; // Default
-  const botonAsignar = document.querySelector(
-    `button[data-codigo="${codigoProducto}"]`
-  );
-  const cromo = botonAsignar?.closest(".cromo-producto");
-  const colorBadge = cromo?.querySelector(".color-badge");
-  if (colorBadge) {
-    color = colorBadge.style.backgroundColor || color;
-  }
-
-  // Iterar sobre los detalles guardados y recrear UI + Indicadores
-  detallesSuperficie.forEach((detalle) => {
-    const { idSuperficie } = detalle;
-
-    // 1. Dibujar Indicador Visual (con offset)
-    let elementoVisual;
-    if (idSuperficie === "floor") {
-      const poligonoOriginal = svgElement.querySelector("polygon.suelo");
-      if (poligonoOriginal)
-        elementoVisual = dibujarIndicadorSuelo(
-          poligonoOriginal,
-          codigoProducto,
-          color
-        );
-    } else {
-      // Es una pared
-      const lineaOriginal = svgElement.querySelector(
-        `line.pared[data-wall="${idSuperficie}"]`
-      );
-      if (lineaOriginal)
-        elementoVisual = dibujarIndicadorPared(
-          lineaOriginal,
-          codigoProducto,
-          idSuperficie,
-          color
-        );
+    // Solo procesar si es tipo especial Y tiene detalles
+    if (!esTipoEspecial || !Array.isArray(detallesSuperficie) || detallesSuperficie.length === 0) {
+        return;
     }
 
-    if (!elementoVisual) {
-      console.warn(
-        `restaurar: No se pudo dibujar indicador para ${idSuperficie}`
-      );
-      // Continuar con el siguiente detalle aunque falle el dibujo? O parar?
-      return; // Saltar este detalle si no se pudo dibujar
+    console.log(`Restaurando ${detallesSuperficie.length} detalles para ${codigoProducto} en <span class="math-inline">\{roomId\} \(</span>{divIdPlano})`);
+
+    const svgElement = document.querySelector(`#<span class="math-inline">\{divIdPlano\} \> svg\[data\-room\-id\="</span>{roomId}"]`);
+    if (!svgElement) {
+        console.error(`restaurar: No se encontró SVG para ${roomId} en ${divIdPlano}`);
+        return;
     }
 
-    // Añadir listener de borrado al indicador recién dibujado
-    elementoVisual.addEventListener("click", (event) => {
-      event.stopPropagation();
-      handleDeleteSurfaceAssignment(elementoVisual.id); // Asume ID único asignado por dibujarIndicador...
-    });
-    elementoVisual.style.cursor = "pointer";
-
-    // 2. Crear Mini-Formulario (pasando los datos guardados)
-    const miniFormElement = crearMiniFormularioSuperficie(
-      detalle,
-      contenedorFormularios,
-      roomId,
-      codigoProducto
-    );
-
-    // 3. Adjuntar Listeners al Mini-Form recién creado (¡IMPORTANTE!)
-    if (miniFormElement) {
-      attachListenersToMiniForm(miniFormElement.id);
+    // Encontrar el contenedor para los mini-forms de este producto
+    const contenedorFormularios = findMiniFormContainer(roomId, codigoProducto);
+    if (!contenedorFormularios) {
+        // Este error es normal si procesarAsignaciones aún no ha creado el contenedor
+        // console.warn(`restaurar: No se encontró contenedor de mini-forms para ${codigoProducto} en ${divIdPlano}. ¿Se creó en procesarAsignaciones?`);
+        return; // No podemos continuar sin el contenedor
     }
-  });
 
-  // 4. Actualizar la cantidad total del producto DESPUÉS de restaurar todos sus detalles
-  updateTotalQuantityDisplay(codigoProducto);
+    // Obtener el color asociado
+    let color = '#808080';
+    const botonAsignar = document.querySelector(`button[data-codigo="${codigoProducto}"]`);
+    const cromo = botonAsignar?.closest('.cromo-producto');
+    const colorBadge = cromo?.querySelector('.color-badge');
+    if (colorBadge) color = colorBadge.style.backgroundColor || color;
+
+    // Limpiar contenedores existentes por si acaso (evita duplicados en recargas parciales)
+    // contenedorFormularios.innerHTML = ''; // Opcional: Borrar antes de recrear
+
+    // Iterar sobre los detalles guardados y recrear UI + Indicadores
+    let needTotalUpdate = false; // Flag para actualizar total solo si hay detalles
+    detallesSuperficie.forEach(detalle => {
+        const { idSuperficie } = detalle;
+        if (!idSuperficie) return; // Saltar si falta ID de superficie
+
+         // 1. Dibujar Indicador Visual (con offset)
+         let elementoVisual;
+         if (idSuperficie === 'floor') {
+              const poligonoOriginal = svgElement.querySelector('polygon.suelo');
+              if(poligonoOriginal) elementoVisual = dibujarIndicadorSuelo(poligonoOriginal, codigoProducto, color);
+         } else {
+              const lineaOriginal = svgElement.querySelector(`line.pared[data-wall="${idSuperficie}"]`);
+               if(lineaOriginal) elementoVisual = dibujarIndicadorPared(lineaOriginal, codigoProducto, idSuperficie, color);
+         }
+
+          if (!elementoVisual) {
+              console.warn(`restaurar: No se pudo dibujar indicador para ${idSuperficie}`);
+              return; // Saltar este detalle
+          }
+
+        // 2. Crear Mini-Formulario (pasando los datos guardados)
+         const miniFormElement = crearMiniFormularioSuperficie(detalle, contenedorFormularios, roomId, codigoProducto);
+
+        // 3. Enlazar, adjuntar listeners si ambos se crearon
+        if (miniFormElement) {
+              // Enlazar el ID del indicador visual al dataset del formulario
+              miniFormElement.dataset.visualElementId = elementoVisual.id;
+
+               // Añadir listener al indicador restaurado para borrar
+               elementoVisual.addEventListener('click', (event) => {
+                   event.stopPropagation();
+                   handleDeleteSurfaceAssignment(miniFormElement.id); // Llamar con ID del FORM
+               });
+               elementoVisual.style.cursor = 'pointer';
+
+              // Adjuntar Listeners al Mini-Form restaurado (¡IMPORTANTE!)
+              attachListenersToMiniForm(miniFormElement.id);
+              needTotalUpdate = true; // Marcar que necesitamos actualizar total
+        } else {
+             // Si falla el form, quitar el indicador que acabamos de dibujar
+             console.error(`restaurar: Falló creación de mini-form para ${idSuperficie}, quitando indicador.`);
+             elementoVisual.remove();
+        }
+    }); // Fin forEach detalle
+
+     // 4. Actualizar la cantidad total del producto DESPUÉS de restaurar todos sus detalles
+     if(needTotalUpdate) {
+          updateTotalQuantityDisplay(codigoProducto);
+     }
+
 } // Fin restaurarAsignacionesVisuales
