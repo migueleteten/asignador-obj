@@ -339,7 +339,7 @@ function addHueco(addButton, formId) {
     const existingHuecos = huecosContainer.querySelectorAll('.hueco-row');
     const newIndex = existingHuecos.length; // El índice del nuevo hueco
 
-    const huecoRowId = `<span class="math-inline">${formId}\-hueco\-${newIndex}`;
+    const huecoRowId = `<span class="math-inline">${formId}-hueco-${newIndex}</span>`;
 
     // Crear la nueva fila
     const newRow = document.createElement('div');
@@ -350,7 +350,7 @@ function addHueco(addButton, formId) {
         <label>H${newIndex + 1} (m):</label>
         L: <input type="number" class="hueco-input" data-prop="largo" step="0.01" min="0" value="" placeholder="Largo">
         &times; Al: <input type="number" class="hueco-input" data-prop="alto" step="0.01" min="0" value="" placeholder="Alto">
-        <button type="button" class="remove-hueco-btn" title="Eliminar Hueco" onclick="removeHueco('${huecoRowId}', '${formId}')"</button>
+        <button type="button" class="remove-hueco-btn" title="Eliminar Hueco" onclick="removeHueco('${huecoRowId}', '${formId}')">Eliminar hueco</button>
     `;
 
     huecosContainer.appendChild(newRow);
