@@ -696,7 +696,7 @@ function updateTotalQuantityDisplay(codigoProducto) {
     }
   } else {
     console.warn(
-      `No se encontró el display de cantidad total para <span class="math-inline">\{codigoProducto\} \(ID\: cantidad\-total\-</span>{codigoProducto})`
+      `No se encontró el display de cantidad total para ${codigoProducto} (ID: cantidad-total-${codigoProducto})`
     );
   }
 }
@@ -710,6 +710,7 @@ function handleDeleteSurfaceAssignment(formId) {
   const estancia = divForm.dataset.roomId;
   const codigoProducto = divForm.dataset.codigoProducto;
   const idSuperficie = divForm.dataset.idSuperficie;
+  const visualId = divForm.dataset.visualElementId;
 
   if (!expediente || !estancia || !codigoProducto || !idSuperficie) {
     alert(
