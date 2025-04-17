@@ -6,15 +6,18 @@ function generarPlanoEstancia(roomId, divId) {
 
   const contenedor = document.getElementById(divId);
   if (!contenedor) {
-      console.error("❌ No se encontró el contenedor con id:", divId); // Usar error para problemas críticos
-      return;
+    console.error("❌ No se encontró el contenedor con id:", divId); // Usar error para problemas críticos
+    return;
   }
 
   const geometria = window.geometriaPorRoom?.[roomId];
-  if (!geometria || !geometria.suelo || !geometria.paredes) { // Verificar también la existencia de suelo/paredes
-      console.warn(`⚠️ No hay geometría completa (suelo/paredes) para ${roomId} en geometriaPorRoom`);
-      contenedor.innerHTML = `<p style='color: #999; padding: 10px;'>No hay datos suficientes para generar el plano de ${roomId}.</p>`;
-      return;
+  if (!geometria || !geometria.suelo || !geometria.paredes) {
+    // Verificar también la existencia de suelo/paredes
+    console.warn(
+      `⚠️ No hay geometría completa (suelo/paredes) para ${roomId} en geometriaPorRoom`
+    );
+    contenedor.innerHTML = `<p style='color: #999; padding: 10px;'>No hay datos suficientes para generar el plano de ${roomId}.</p>`;
+    return;
   }
 
   const svgNS = "http://www.w3.org/2000/svg";
@@ -28,81 +31,85 @@ function generarPlanoEstancia(roomId, divId) {
   svg.style.display = "block"; // Evitar espacio extra debajo del SVG
   svg.style.margin = "auto"; // Centrar si es necesario
 
-
   // Dibujar suelo primero
   if (Array.isArray(geometria.suelo) && geometria.suelo.length > 0) {
-      const suelo = document.createElementNS(svgNS, "polygon");
-      // --- CORRECCIÓN: Usar p.y en lugar de p.z ---
-      const puntos = geometria.suelo.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
-      suelo.setAttribute("points", puntos);
-      suelo.setAttribute("fill", "#ffffff"); // Un gris más claro
-      suelo.setAttribute("stroke", "#cccccc"); // Borde más sutil
-      suelo.setAttribute("stroke-width", "15"); // Ancho de borde más fino
-      suelo.setAttribute("class", "suelo");
-      suelo.style.cursor = "pointer";
-      suelo.addEventListener("click", (event) => {
-        if (window.productoEnAsignacion) {
-            realizarAsignacion('floor', 'floor', event.target); // 'floor' como idSuperficie
-        } else {
-            console.log("Click en suelo (sin producto para asignar)");
-        }
+    const suelo = document.createElementNS(svgNS, "polygon");
+    // --- CORRECCIÓN: Usar p.y en lugar de p.z ---
+    const puntos = geometria.suelo
+      .map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`)
+      .join(" ");
+    suelo.setAttribute("points", puntos);
+    suelo.setAttribute("fill", "#ffffff"); // Un gris más claro
+    suelo.setAttribute("stroke", "#cccccc"); // Borde más sutil
+    suelo.setAttribute("stroke-width", "15"); // Ancho de borde más fino
+    suelo.setAttribute("class", "suelo");
+    suelo.style.cursor = "pointer";
+    suelo.addEventListener("click", (event) => {
+      if (window.productoEnAsignacion) {
+        realizarAsignacion("floor", "floor", event.target); // 'floor' como idSuperficie
+      } else {
+        console.log("Click en suelo (sin producto para asignar)");
+      }
     });
-      svg.appendChild(suelo);
+    svg.appendChild(suelo);
   } else {
-      console.warn(`Suelo para ${roomId} no es un array válido o está vacío.`);
+    console.warn(`Suelo para ${roomId} no es un array válido o está vacío.`);
   }
 
   // Dibujar paredes
   if (Array.isArray(geometria.paredes)) {
-      geometria.paredes.forEach((pared, i) => {
-          // --- CORRECCIÓN: Desestructurar y1, y2 en lugar de z1, z2 ---
-          const { x1, y1, x2, y2, wallId } = pared;
+    geometria.paredes.forEach((pared, i) => {
+      // --- CORRECCIÓN: Desestructurar y1, y2 en lugar de z1, z2 ---
+      const { x1, y1, x2, y2, wallId } = pared;
 
-          // --- CORRECCIÓN: Usar y1, y2 para calcular dy ---
-          const dx = x2 - x1;
-          const dy = y2 - y1; // Usar y1, y2
-          const distancia = Math.sqrt(dx * dx + dy * dy);
+      // --- CORRECCIÓN: Usar y1, y2 para calcular dy ---
+      const dx = x2 - x1;
+      const dy = y2 - y1; // Usar y1, y2
+      const distancia = Math.sqrt(dx * dx + dy * dy);
 
-          // Descartar líneas muy cortas (puede ser útil si hay vértices duplicados cercanos)
-          if (distancia < 0.1) { // Umbral muy pequeño
-               // console.log(`Descartando pared ${wallId || i} por ser muy corta: ${distancia.toFixed(3)}`);
-               return;
-          }
+      // Descartar líneas muy cortas (puede ser útil si hay vértices duplicados cercanos)
+      if (distancia < 0.1) {
+        // Umbral muy pequeño
+        // console.log(`Descartando pared ${wallId || i} por ser muy corta: ${distancia.toFixed(3)}`);
+        return;
+      }
 
-          const linea = document.createElementNS(svgNS, "line");
-          // --- CORRECCIÓN: Establecer atributos y1, y2 ---
-          linea.setAttribute("x1", x1.toFixed(2));
-          linea.setAttribute("y1", y1.toFixed(2)); // Usar y1
-          linea.setAttribute("x2", x2.toFixed(2));
-          linea.setAttribute("y2", y2.toFixed(2)); // Usar y2
+      const linea = document.createElementNS(svgNS, "line");
+      // --- CORRECCIÓN: Establecer atributos y1, y2 ---
+      linea.setAttribute("x1", x1.toFixed(2));
+      linea.setAttribute("y1", y1.toFixed(2)); // Usar y1
+      linea.setAttribute("x2", x2.toFixed(2));
+      linea.setAttribute("y2", y2.toFixed(2)); // Usar y2
 
-          linea.setAttribute("stroke", "#888888"); // Un gris más oscuro para las paredes
-          linea.setAttribute("stroke-width", "15"); // Hacerlas un poco más gruesas
-          linea.setAttribute("stroke-linecap", "round"); // Extremos redondeados
-          if (wallId) { // Solo añadir data-wall si existe
-               linea.setAttribute("data-wall", wallId);
+      linea.setAttribute("stroke", "#888888"); // Un gris más oscuro para las paredes
+      linea.setAttribute("stroke-width", "15"); // Hacerlas un poco más gruesas
+      linea.setAttribute("stroke-linecap", "round"); // Extremos redondeados
+      if (wallId) {
+        // Solo añadir data-wall si existe
+        linea.setAttribute("data-wall", wallId);
+      } else {
+        console.warn(`Pared ${i} en ${roomId} no tiene wallId asignado.`);
+        linea.setAttribute("stroke", "#ff0000"); // Marcar en rojo paredes sin ID?
+      }
+      linea.setAttribute("class", "pared");
+      linea.style.cursor = "pointer";
+
+      if (wallId) {
+        // Solo añadir listener si la pared tiene ID
+        linea.addEventListener("click", (event) => {
+          event.stopPropagation();
+          if (window.productoEnAsignacion) {
+            realizarAsignacion("wall", wallId, event.target);
           } else {
-               console.warn(`Pared ${i} en ${roomId} no tiene wallId asignado.`);
-               linea.setAttribute("stroke", "#ff0000"); // Marcar en rojo paredes sin ID?
+            console.log(`Click en pared ${wallId} (sin producto para asignar)`);
           }
-          linea.setAttribute("class", "pared");
-          linea.style.cursor = "pointer";
-
-          if (wallId) { // Solo añadir listener si la pared tiene ID
-            linea.addEventListener("click", (event) => {
-                event.stopPropagation();
-                if (window.productoEnAsignacion) {
-                    realizarAsignacion('wall', wallId, event.target);
-                } else {
-                    console.log(`Click en pared ${wallId} (sin producto para asignar)`);
-                }
-            });
-            linea.style.cursor = "pointer"; // Hacerla clickable solo si tiene ID y listener
-        }
-          svg.appendChild(linea);
-      });
+        });
+        linea.style.cursor = "pointer"; // Hacerla clickable solo si tiene ID y listener
+      }
+      svg.appendChild(linea);
+    });
   } else {
-       console.warn(`Paredes para ${roomId} no es un array válido.`);
+    console.warn(`Paredes para ${roomId} no es un array válido.`);
   }
 
   contenedor.innerHTML = ""; // Limpiar antes de añadir
@@ -113,22 +120,24 @@ function generarPlanoEstancia(roomId, divId) {
 function asignarASuperficie(codigo, color, event) {
   // Si ya estábamos asignando otro producto, cancelar la asignación anterior
   if (window.productoEnAsignacion) {
-      cancelarAsignacion();
+    cancelarAsignacion();
   }
 
   window.productoEnAsignacion = { codigo: codigo, color: color };
   window.botonOrigenAsignacion = event.target; // Guardar referencia al botón
 
-  console.log(`Listo para asignar producto ${codigo} (Color: ${color}). Haz clic en una pared o suelo del plano correspondiente.`);
+  console.log(
+    `Listo para asignar producto ${codigo} (Color: ${color}). Haz clic en una pared o suelo del plano correspondiente.`
+  );
 
   // Feedback visual: Cambiar cursor en TODOS los contenedores de plano
-  document.querySelectorAll(".plano-estancia").forEach(cont => {
-      cont.style.cursor = 'crosshair';
-      cont.classList.add('modo-asignacion'); // Añadir clase para posible resaltado CSS
+  document.querySelectorAll(".plano-estancia").forEach((cont) => {
+    cont.style.cursor = "crosshair";
+    cont.classList.add("modo-asignacion"); // Añadir clase para posible resaltado CSS
   });
 
-   // Opcional: Resaltar el producto que se está asignando
-   event.target.closest('.cromo-producto')?.classList.add('asignando-ahora');
+  // Opcional: Resaltar el producto que se está asignando
+  event.target.closest(".cromo-producto")?.classList.add("asignando-ahora");
 
   // Opcional: Añadir listener para cancelar con clic fuera del SVG? Más complejo.
 }
@@ -140,23 +149,25 @@ function cancelarAsignacion() {
 
   console.log("Asignación cancelada para", window.productoEnAsignacion.codigo);
   // Quitar resaltado del producto
-  const cromoAsignando = document.querySelector('.cromo-producto.asignando-ahora');
-   if(cromoAsignando) cromoAsignando.classList.remove('asignando-ahora');
+  const cromoAsignando = document.querySelector(
+    ".cromo-producto.asignando-ahora"
+  );
+  if (cromoAsignando) cromoAsignando.classList.remove("asignando-ahora");
 
   window.productoEnAsignacion = null;
   window.botonOrigenAsignacion = null;
 
   // Restaurar cursor en todos los planos
-  document.querySelectorAll(".plano-estancia").forEach(cont => {
-      cont.style.cursor = 'default';
-      cont.classList.remove('modo-asignacion');
+  document.querySelectorAll(".plano-estancia").forEach((cont) => {
+    cont.style.cursor = "default";
+    cont.classList.remove("modo-asignacion");
   });
 }
 
 // Listener para cancelar con tecla ESC
-document.addEventListener('keydown', (event) => {
+document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && window.productoEnAsignacion) {
-      cancelarAsignacion();
+    cancelarAsignacion();
   }
 });
 
@@ -164,102 +175,152 @@ document.addEventListener('keydown', (event) => {
 
 // --- DENTRO de generarPlanoEstancia.js ---
 
-async function realizarAsignacion(tipoSuperficie, idSuperficie, elementoClicado) {
+async function realizarAsignacion(
+  tipoSuperficie,
+  idSuperficie,
+  elementoClicado
+) {
   // --- Obtener datos esenciales ---
   const expedienteActual = sessionStorage.getItem("expedienteSeleccionado");
-  if (!window.productoEnAsignacion || !window.botonOrigenAsignacion || !expedienteActual) {
-      console.error("Estado inválido (falta producto, botón o expediente).", window.productoEnAsignacion, window.botonOrigenAsignacion, expedienteActual);
-      cancelarAsignacion(); // Limpia estado (productoEnAsignacion, etc.)
-      return;
+  if (
+    !window.productoEnAsignacion ||
+    !window.botonOrigenAsignacion ||
+    !expedienteActual
+  ) {
+    console.error(
+      "Estado inválido (falta producto, botón o expediente).",
+      window.productoEnAsignacion,
+      window.botonOrigenAsignacion,
+      expedienteActual
+    );
+    cancelarAsignacion(); // Limpia estado (productoEnAsignacion, etc.)
+    return;
   }
 
   const { codigo: codigoProducto, color } = window.productoEnAsignacion;
   const botonOriginal = window.botonOrigenAsignacion;
 
-  const svgElement = elementoClicado.closest('svg[data-room-id]');
+  const svgElement = elementoClicado.closest("svg[data-room-id]");
   if (!svgElement) {
-      console.error("No se pudo encontrar el SVG padre.");
-      cancelarAsignacion();
-      return;
+    console.error("No se pudo encontrar el SVG padre.");
+    cancelarAsignacion();
+    return;
   }
-  const roomId = svgElement.getAttribute('data-room-id');
+  const roomId = svgElement.getAttribute("data-room-id");
 
   // --- Obtener datos geométricos necesarios para el NUEVO detalle ---
   // (Estas funciones DEBEN estar implementadas y funcionar correctamente)
   const alturaDefault = getRoomHeight(roomId) || 2.5; // Obtener altura (o fallback)
   const longitudObtenida = getSegmentLength(idSuperficie, roomId) || 0; // Obtener longitud (o fallback)
 
-  console.log(`Asignando ${codigoProducto} a ${idSuperficie} (${tipoSuperficie}) en ${roomId} [Exp: ${expedienteActual}]`);
-  console.log(` - Altura default: ${alturaDefault}, Longitud superficie: ${longitudObtenida}`);
+  console.log(
+    `Asignando ${codigoProducto} a ${idSuperficie} (${tipoSuperficie}) en ${roomId} [Exp: ${expedienteActual}]`
+  );
+  console.log(
+    ` - Altura default: ${alturaDefault}, Longitud superficie: ${longitudObtenida}`
+  );
 
   // Mostrar feedback visual inmediato (opcional)
-  if (elementoClicado) elementoClicado.style.opacity = '0.5'; // Atenuar pared/suelo clicado
+  if (elementoClicado) elementoClicado.style.opacity = "0.5"; // Atenuar pared/suelo clicado
 
   // --- Preparar datos para guardar el NUEVO detalle por PRIMERA VEZ ---
   const detalleDataInicial = {
-      expediente: expedienteActual,
-      estancia: roomId,
-      codigoProducto: codigoProducto,
-      idSuperficie: idSuperficie,
-      cotaInferior: 0, // Default inicial
-      cotaSuperior: alturaDefault, // Default inicial
-      longitudSuperficie: +longitudObtenida.toFixed(4), // Guardar longitud obtenida
-      huecosJSON: [] // Sin huecos inicialmente (se guardará como '[]')
-      // cantidadCalculadaM2 se calcula en el backend
+    expediente: expedienteActual,
+    estancia: roomId,
+    codigoProducto: codigoProducto,
+    idSuperficie: idSuperficie,
+    cotaInferior: 0, // Default inicial
+    cotaSuperior: alturaDefault, // Default inicial
+    longitudSuperficie: +longitudObtenida.toFixed(4), // Guardar longitud obtenida
+    huecosJSON: [], // Sin huecos inicialmente (se guardará como '[]')
+    // cantidadCalculadaM2 se calcula en el backend
   };
 
   // --- LLAMAR A LA FUNCIÓN BACKEND CORRECTA ---
   google.script.run
-      .withSuccessHandler(function(respuestaBackend) {
-          console.log("Respuesta de guardarDetalleSuperficie:", respuestaBackend);
-           if (elementoClicado) elementoClicado.style.opacity = '1'; // Restaurar opacidad
+    .withSuccessHandler(function (respuestaBackend) {
+      console.log("Respuesta de guardarDetalleSuperficie:", respuestaBackend);
+      if (elementoClicado) elementoClicado.style.opacity = "1"; // Restaurar opacidad
 
-          if (respuestaBackend && respuestaBackend.status === "success") {
-              // --- ÉXITO AL GUARDAR ---
+      if (respuestaBackend && respuestaBackend.status === "success") {
+        // --- ÉXITO AL GUARDAR ---
 
-              // 1. Dibujar Indicador Visual (usando la función ya modificada con offset)
-              let elementoVisualAsignacion;
-              if (tipoSuperficie === 'wall') {
-                  const lineaOriginal = svgElement.querySelector(`line.pared[data-wall="${idSuperficie}"]`);
-                  if (lineaOriginal) {
-                      elementoVisualAsignacion = dibujarIndicadorPared(lineaOriginal, codigoProducto, idSuperficie, color);
-                  } else console.error("No se encontró línea original para dibujar indicador pared", idSuperficie);
-              } else { // floor
-                  const poligonoOriginal = svgElement.querySelector('polygon.suelo');
-                   if (poligonoOriginal) {
-                      elementoVisualAsignacion = dibujarIndicadorSuelo(poligonoOriginal, codigoProducto, color);
-                  } else console.error("No se encontró polígono original para dibujar indicador suelo");
-              }
+        // 1. Dibujar Indicador Visual (usando la función ya modificada con offset)
+        let elementoVisualAsignacion;
+        if (tipoSuperficie === "wall") {
+          const lineaOriginal = svgElement.querySelector(
+            `line.pared[data-wall="${idSuperficie}"]`
+          );
+          if (lineaOriginal) {
+            elementoVisualAsignacion = dibujarIndicadorPared(
+              lineaOriginal,
+              codigoProducto,
+              idSuperficie,
+              color
+            );
+          } else
+            console.error(
+              "No se encontró línea original para dibujar indicador pared",
+              idSuperficie
+            );
+        } else {
+          // floor
+          const poligonoOriginal = svgElement.querySelector("polygon.suelo");
+          if (poligonoOriginal) {
+            elementoVisualAsignacion = dibujarIndicadorSuelo(
+              poligonoOriginal,
+              codigoProducto,
+              color
+            );
+          } else
+            console.error(
+              "No se encontró polígono original para dibujar indicador suelo"
+            );
+        }
 
-              // 2. Crear el Mini-Formulario UI (¡Este es el paso que falta!)
-              if (elementoVisualAsignacion) {
-                  // --- !! PASO SIGUIENTE: IMPLEMENTAR ESTO !! ---
-                  // Necesitamos encontrar el contenedor correcto bajo el cromo del producto
-                  const contenedorFormularios = findMiniFormContainer(roomId, codigoProducto); // NECESITAMOS ESTA FUNCIÓN
-                  if (contenedorFormularios) {
-                       const miniFormElement = crearMiniFormularioSuperficie(detalleDataInicial, contenedorFormularios, roomId, codigoProducto);
-                       if (miniFormElement) {
-                           // attachListenersToMiniForm(miniFormElement.id); // Adjuntar listeners (Paso futuro)
-                       }
-                  } else {
-                       console.error(`No se encontró el contenedor para mini-forms de ${codigoProducto} en ${roomId}`);
-                  }
-                   // --- FIN PASO SIGUIENTE ---
+        if (elementoVisualAsignacion && miniFormElement) {
+          miniFormElement.dataset.visualElementId = elementoVisualAsignacion.id; // Guarda el ID del SVG en el form
+        }
 
-                   // Añadir listener al elemento visual para eliminar (si se creó bien)
-                   elementoVisualAsignacion.addEventListener('click', (event) => {
-                       event.stopPropagation();
-                       handleDeleteSurfaceAssignment(elementoVisualAsignacion.id); // Asume que el ID se puso bien en dibujarIndicador...
-                   });
-                   elementoVisualAsignacion.style.cursor = 'pointer';
+        // 2. Crear el Mini-Formulario UI (¡Este es el paso que falta!)
+        if (elementoVisualAsignacion) {
+          // --- !! PASO SIGUIENTE: IMPLEMENTAR ESTO !! ---
+          // Necesitamos encontrar el contenedor correcto bajo el cromo del producto
+          const contenedorFormularios = findMiniFormContainer(
+            roomId,
+            codigoProducto
+          ); // NECESITAMOS ESTA FUNCIÓN
+          if (contenedorFormularios) {
+            const miniFormElement = crearMiniFormularioSuperficie(
+              detalleDataInicial,
+              contenedorFormularios,
+              roomId,
+              codigoProducto
+            );
+            if (miniFormElement) {
+              // attachListenersToMiniForm(miniFormElement.id); // Adjuntar listeners (Paso futuro)
+            }
+          } else {
+            console.error(
+              `No se encontró el contenedor para mini-forms de ${codigoProducto} en ${roomId}`
+            );
+          }
+          // --- FIN PASO SIGUIENTE ---
 
-              } else {
-                  console.error("No se pudo dibujar el indicador visual, no se creará mini-form.");
-              }
+          // Añadir listener al elemento visual para eliminar (si se creó bien)
+          elementoVisualAsignacion.addEventListener("click", (event) => {
+            event.stopPropagation();
+            handleDeleteSurfaceAssignment(elementoVisualAsignacion.id); // Asume que el ID se puso bien en dibujarIndicador...
+          });
+          elementoVisualAsignacion.style.cursor = "pointer";
+        } else {
+          console.error(
+            "No se pudo dibujar el indicador visual, no se creará mini-form."
+          );
+        }
 
-
-              // 3. Actualizar Botón Original (si no se ha modificado ya por otra asignación)
-              /*if (botonOriginal && botonOriginal.classList.contains('asignar')) { // Solo cambiar si AÚN es "Asignar"
+        // 3. Actualizar Botón Original (si no se ha modificado ya por otra asignación)
+        /*if (botonOriginal && botonOriginal.classList.contains('asignar')) { // Solo cambiar si AÚN es "Asignar"
                    botonOriginal.textContent = "Eliminar asignación"; // OJO: Este botón ahora debería DESCARTAR, no eliminar detalles? Revisar lógica de botones
                    botonOriginal.classList.remove("asignar");
                    botonOriginal.classList.add("eliminar"); // ¿O clase 'descartar'?
@@ -268,28 +329,30 @@ async function realizarAsignacion(tipoSuperficie, idSuperficie, elementoClicado)
                    console.warn("Lógica del botón principal 'Eliminar asignación' necesita revisión para nueva funcionalidad.");
               }*/
 
-               // 4. Actualizar Cantidad Total (Paso futuro)
-               // updateTotalQuantityDisplay(expedienteActual, roomId, codigoProducto);
+        // 4. Actualizar Cantidad Total (Paso futuro)
+        // updateTotalQuantityDisplay(expedienteActual, roomId, codigoProducto);
+      } else {
+        // El backend devolvió un error controlado
+        console.error(
+          "Error guardando detalle superficie:",
+          respuestaBackend?.message || "Error desconocido"
+        );
+        alert(
+          "Error al guardar la asignación de superficie: " +
+            (respuestaBackend?.message || "Error desconocido")
+        );
+      }
 
-
-          } else {
-              // El backend devolvió un error controlado
-              console.error("Error guardando detalle superficie:", respuestaBackend?.message || "Error desconocido");
-              alert("Error al guardar la asignación de superficie: " + (respuestaBackend?.message || "Error desconocido"));
-          }
-
-           // Limpiar estado de asignación independientemente del éxito del UI
-           cancelarAsignacion();
-
-      })
-      .withFailureHandler(error => {
-          // Error en la llamada google.script.run en sí
-           if (elementoClicado) elementoClicado.style.opacity = '1'; // Restaurar opacidad
-           handleScriptError(error); // Usar el manejador genérico
-           cancelarAsignacion(); // Limpiar estado también si falla la llamada
-      })
-      .guardarDetalleSuperficie(detalleDataInicial); // <--- LLAMAR A LA FUNCIÓN CORRECTA
-
+      // Limpiar estado de asignación independientemente del éxito del UI
+      cancelarAsignacion();
+    })
+    .withFailureHandler((error) => {
+      // Error en la llamada google.script.run en sí
+      if (elementoClicado) elementoClicado.style.opacity = "1"; // Restaurar opacidad
+      handleScriptError(error); // Usar el manejador genérico
+      cancelarAsignacion(); // Limpiar estado también si falla la llamada
+    })
+    .guardarDetalleSuperficie(detalleDataInicial); // <--- LLAMAR A LA FUNCIÓN CORRECTA
 }
 
 /**
@@ -302,24 +365,32 @@ async function realizarAsignacion(tipoSuperficie, idSuperficie, elementoClicado)
 function findMiniFormContainer(roomId, codigoProducto) {
   // 1. Encontrar un elemento distintivo del producto (el botón es buena opción)
   // Usamos data-codigo que añadimos al botón
-  const botonProducto = document.querySelector(`button[data-codigo="${codigoProducto}"]`);
+  const botonProducto = document.querySelector(
+    `button[data-codigo="${codigoProducto}"]`
+  );
   if (!botonProducto) {
-      console.error(`findMiniFormContainer: No se encontró el botón para ${codigoProducto}`);
-      return null;
+    console.error(
+      `findMiniFormContainer: No se encontró el botón para ${codigoProducto}`
+    );
+    return null;
   }
   // 2. Subir al contenedor del tipo de producto (<details class="bloque-tipo">)
-  const cromoElement = botonProducto.closest('.cromo-producto');
+  const cromoElement = botonProducto.closest(".cromo-producto");
   if (!cromoElement) {
-       console.error(`findMiniFormContainer: No se encontró el <details> padre (.bloque-tipo) para ${codigoProducto}`);
-       return null;
+    console.error(
+      `findMiniFormContainer: No se encontró el <details> padre (.bloque-tipo) para ${codigoProducto}`
+    );
+    return null;
   }
   // 3. Buscar DENTRO de ese <details> el div contenedor específico
   const selector = `.mini-forms-container[data-codigo-producto="${codigoProducto}"]`;
   const contenedor = cromoElement.querySelector(selector);
 
   if (!contenedor) {
-      // Este log es útil si el contenedor no se creó bien en procesarAsignaciones
-      console.error(`findMiniFormContainer: Contenedor no encontrado con selector: ${selector} DENTRO del detail`);
+    // Este log es útil si el contenedor no se creó bien en procesarAsignaciones
+    console.error(
+      `findMiniFormContainer: Contenedor no encontrado con selector: ${selector} DENTRO del detail`
+    );
   }
   return contenedor || null; // Devuelve el contenedor o null
 }
@@ -331,54 +402,58 @@ function findMiniFormContainer(roomId, codigoProducto) {
  */
 // --- DENTRO de generarPlanoEstancia.js ---
 
-function addHueco(addButton, formId) { // Asegúrate que la llamada en HTML es addHueco(this, 'formId')
-    const divForm = document.getElementById(formId);
-    if (!divForm) {
-        console.error("addHueco: No se encontró el divForm con ID:", formId);
-        return;
-    }
+function addHueco(addButton, formId) {
+  // Asegúrate que la llamada en HTML es addHueco(this, 'formId')
+  const divForm = document.getElementById(formId);
+  if (!divForm) {
+    console.error("addHueco: No se encontró el divForm con ID:", formId);
+    return;
+  }
 
-    const huecosContainer = divForm.querySelector('.huecos-container');
-    if (!huecosContainer) {
-         console.error("addHueco: No se encontró .huecos-container dentro de:", formId);
-        return;
-    }
+  const huecosContainer = divForm.querySelector(".huecos-container");
+  if (!huecosContainer) {
+    console.error(
+      "addHueco: No se encontró .huecos-container dentro de:",
+      formId
+    );
+    return;
+  }
 
-    const existingHuecos = huecosContainer.querySelectorAll('.hueco-row');
-    const newIndex = existingHuecos.length;
+  const existingHuecos = huecosContainer.querySelectorAll(".hueco-row");
+  const newIndex = existingHuecos.length;
 
-    // CORREGIDO: Generar el ID como un string limpio
-    const huecoRowId = `${formId}-hueco-${newIndex}`;
+  // CORREGIDO: Generar el ID como un string limpio
+  const huecoRowId = `${formId}-hueco-${newIndex}`;
 
-    // Crear la nueva fila
-    const newRow = document.createElement('div');
-    newRow.className = 'hueco-row';
-    newRow.id = huecoRowId; // Asignar ID limpio
-    newRow.dataset.huecoIndex = newIndex;
+  // Crear la nueva fila
+  const newRow = document.createElement("div");
+  newRow.className = "hueco-row";
+  newRow.id = huecoRowId; // Asignar ID limpio
+  newRow.dataset.huecoIndex = newIndex;
 
-    // CORREGIDO: innerHTML usando backticks y variables correctamente interpoladas
-    newRow.innerHTML = `
+  // CORREGIDO: innerHTML usando backticks y variables correctamente interpoladas
+  newRow.innerHTML = `
         <label>H${newIndex + 1} (m):</label>
         L: <input type="number" class="hueco-input" data-prop="largo" step="0.01" min="0" value="" placeholder="Largo">
         &times; Al: <input type="number" class="hueco-input" data-prop="alto" step="0.01" min="0" value="" placeholder="Alto">
         <button type="button" class="remove-hueco-btn" title="Eliminar Hueco" onclick="removeHueco('${huecoRowId}', '${formId}')">Eliminar hueco</button>
     `;
-    // Asegúrate que las comillas simples ' rodean a ${huecoRowId} y ${formId} dentro del onclick
+  // Asegúrate que las comillas simples ' rodean a ${huecoRowId} y ${formId} dentro del onclick
 
-    huecosContainer.appendChild(newRow);
-    console.log(`Fila de hueco ${huecoRowId} añadida.`);
+  huecosContainer.appendChild(newRow);
+  console.log(`Fila de hueco ${huecoRowId} añadida.`);
 
-    // Adjuntar listeners a los NUEVOS inputs
-    const newInputs = newRow.querySelectorAll('.hueco-input');
-    newInputs.forEach(input => {
-         // Usamos dataset para asociar al form padre
-         input.dataset.formId = formId;
-         input.addEventListener('input', debounce(handleMiniFormInputChange, 800)); // Debounce un poco más largo quizás
-         input.addEventListener('change', handleMiniFormInputChange); // Guardar al perder foco también
-    });
+  // Adjuntar listeners a los NUEVOS inputs
+  const newInputs = newRow.querySelectorAll(".hueco-input");
+  newInputs.forEach((input) => {
+    // Usamos dataset para asociar al form padre
+    input.dataset.formId = formId;
+    input.addEventListener("input", debounce(handleMiniFormInputChange, 800)); // Debounce un poco más largo quizás
+    input.addEventListener("change", handleMiniFormInputChange); // Guardar al perder foco también
+  });
 
-    // Opcional: Mover el foco al primer input del nuevo hueco
-    newRow.querySelector('input[data-prop="largo"]')?.focus();
+  // Opcional: Mover el foco al primer input del nuevo hueco
+  newRow.querySelector('input[data-prop="largo"]')?.focus();
 }
 
 // --- NECESITARÁS ESTA FUNCIÓN DEBNounce (o una similar) ---
@@ -393,148 +468,289 @@ function debounce(func, wait) {
     clearTimeout(timeout);
     timeout = setTimeout(later, wait);
   };
-};
+}
 
-// --- NECESITARÁS EL HANDLER (Lo implementaremos después) ---
+// Definir la versión debounced de la llamada al backend ANTES de usarla
+const guardarDetalleDebounced = debounce(function (detalleParaGuardar) {
+  console.log("Llamando a guardar (DEBOUNCED):", detalleParaGuardar);
+  google.script.run
+    .withSuccessHandler((respuesta) => {
+      console.log("Respuesta guardarDetalleSuperficie (debounced):", respuesta);
+      if (respuesta && respuesta.status === "success") {
+        // OK - Actualizar cantidad total del producto después de guardar
+        updateTotalQuantityDisplay(detalleParaGuardar.codigoProducto);
+        // Podríamos actualizar el idDetalle si era nuevo? El backend no lo devuelve ahora.
+      } else {
+        // Mostrar error si el guardado falla
+        alert(
+          "Error al guardar cambios en detalle de superficie: " +
+            (respuesta?.message || "Error desconocido")
+        );
+        // Podríamos intentar revertir la UI? O marcarla como no guardada?
+      }
+    })
+    .withFailureHandler(handleScriptError) // Usar manejador genérico
+    .guardarDetalleSuperficie(detalleParaGuardar);
+}, 1200); // Debounce de 1.2 segundos (ajusta si quieres)
+
+/**
+ * Adjunta los event listeners necesarios a los inputs y botones de un mini-form.
+ * @param {string} formId - El ID del elemento div.mini-form-superficie.
+ */
+function attachListenersToMiniForm(formId) {
+  const divForm = document.getElementById(formId);
+  if (!divForm) {
+    console.error(`attachListeners: No se encontró form con ID ${formId}`);
+    return;
+  }
+
+  // Listeners para inputs de Cotas y Huecos
+  const inputs = divForm.querySelectorAll(".cota-input, .hueco-input");
+  inputs.forEach((input) => {
+    // Usamos input para respuesta inmediata, change para asegurar guardado al salir
+    input.addEventListener("input", handleMiniFormInputChange);
+    input.addEventListener("change", handleMiniFormInputChange);
+    // Guardar ID del form en el input para fácil acceso en el handler
+    input.dataset.formId = formId;
+  });
+
+  // Listeners para botones (Add/Remove Hueco, Delete Surface) ya están en el onclick.
+  // Podríamos añadirlos aquí también si quitamos los onclick del HTML. Por ahora está bien así.
+  console.log(`Listeners añadidos (o verificados) para ${formId}`);
+}
+
+/**
+ * Handler para eventos 'input' o 'change' en los inputs del mini-form.
+ * Llama a la función de recálculo y guardado (con debounce).
+ * @param {Event} event - El objeto evento.
+ */
 function handleMiniFormInputChange(event) {
-    const input = event.target;
-    const formId = input.closest('.mini-form-superficie')?.id;
-    if (!formId) return;
-    console.log(`Input cambiado en ${formId}:`, input.dataset.prop, input.value);
-    // TODO:
-    // 1. Recalcular cantidad para ESTE form (leer todos sus inputs)
-    // 2. Actualizar el display de cantidad de ESTE form
-    // 3. Llamar a guardarDetalleSuperficie con TODOS los datos actuales del form (cotas, huecos actualizados)
-    // 4. Llamar a updateTotalQuantityDisplay para el producto general
-    recalculateAndUpdateMiniForm(formId); // Necesitaremos esta función
+  const input = event.target;
+  // Obtener formId desde el dataset del input o subiendo por el DOM
+  const formId =
+    input.dataset.formId || input.closest(".mini-form-superficie")?.id;
+  if (!formId) {
+    console.error(
+      "handleMiniFormInputChange: No se pudo determinar formId desde",
+      input
+    );
+    return;
+  }
+  // Llamar a la función principal de recálculo y guardado (esta llamará al debounce)
+  recalculateAndUpdateMiniForm(formId, true); // true indica que es un cambio de input (para debounce)
 }
 
+// --- Modificar `removeHueco` para que llame a recalcular ---
 function removeHueco(huecoRowId, formId) {
-     const huecoRow = document.getElementById(huecoRowId);
-     if (huecoRow) {
-         huecoRow.remove();
-         // TODO: Recalcular, guardar y actualizar cantidad total
-          recalculateAndUpdateMiniForm(formId);
-     }
+  const huecoRow = document.getElementById(huecoRowId);
+  if (huecoRow) {
+    huecoRow.remove();
+    // Llamar a recalcular y guardar SIN debounce porque es una acción directa
+    recalculateAndUpdateMiniForm(formId, false); // false indica que no necesita debounce
+  }
 }
 
-// --- NECESITARÁS ESTA FUNCIÓN (Implementación básica) ---
-function recalculateAndUpdateMiniForm(formId) {
-     const divForm = document.getElementById(formId);
-     if (!divForm) return;
-     console.log(`RECALCULANDO para ${formId}`);
+/**
+ * Lee todos los valores de un mini-form, recalcula la cantidad,
+ * actualiza el display de cantidad del mini-form, y llama (con debounce)
+ * a la función para guardar los datos en el backend.
+ * @param {string} formId - El ID del mini-form a procesar.
+ * @param {boolean} isInputChange - true si la llamada viene de un evento 'input', para aplicar debounce.
+ */
+function recalculateAndUpdateMiniForm(formId, isInputChange = false) {
+  const divForm = document.getElementById(formId);
+  if (!divForm) {
+    console.error(
+      `recalculateAndUpdateMiniForm: No se encontró form con ID ${formId}`
+    );
+    return;
+  }
+  console.log(`Recalculando para ${formId}...`);
 
-     // Leer todos los valores actuales del formulario
-     const cotaInfInput = divForm.querySelector('.cota-input[data-prop="cotaInferior"]');
-     const cotaSupInput = divForm.querySelector('.cota-input[data-prop="cotaSuperior"]');
-     const longitud = parseFloat(divForm.dataset.longitud) || 0;
-     const cotaInf = parseFloat(cotaInfInput?.value) || 0;
-     const cotaSup = parseFloat(cotaSupInput?.value) || 0;
+  // --- Leer valores actuales del formulario ---
+  const cotaInfInput = divForm.querySelector(
+    '.cota-input[data-prop="cotaInferior"]'
+  );
+  const cotaSupInput = divForm.querySelector(
+    '.cota-input[data-prop="cotaSuperior"]'
+  );
+  // La longitud la leemos del dataset donde la guardamos al crear
+  const longitud = parseFloat(divForm.dataset.longitud) || 0;
+  const cotaInf = parseFloat(cotaInfInput?.value) || 0;
+  const cotaSup = parseFloat(cotaSupInput?.value) || 0;
 
-     const huecosArray = [];
-     divForm.querySelectorAll('.hueco-row').forEach(row => {
-         const largoInput = row.querySelector('.hueco-input[data-prop="largo"]');
-         const altoInput = row.querySelector('.hueco-input[data-prop="alto"]');
-         const largo = parseFloat(largoInput?.value) || 0;
-         const alto = parseFloat(altoInput?.value) || 0;
-          // Solo añadir si ambos son válidos (o como prefieras manejarlo)
-         if (largo > 0 && alto > 0) {
-             huecosArray.push({ largo: largo, alto: alto });
-         } else if (largoInput?.value || altoInput?.value) { // Si hay algo escrito pero no es válido
-             console.warn("Hueco inválido o incompleto en", row.id);
-             // Podrías marcar el input en rojo o ignorarlo
-         }
-     });
+  const huecosArray = [];
+  divForm.querySelectorAll(".hueco-row").forEach((row) => {
+    const largoInput = row.querySelector('.hueco-input[data-prop="largo"]');
+    const altoInput = row.querySelector('.hueco-input[data-prop="alto"]');
+    // Parsear valores, usar 0 si está vacío o no es número válido
+    const largo = parseFloat(largoInput?.value) || 0;
+    const alto = parseFloat(altoInput?.value) || 0;
+    // Solo añadir hueco si AMBOS largo y alto tienen un valor positivo
+    // O podrías decidir añadirlo si al menos uno tiene valor? Ajusta la lógica si es necesario.
+    // Por ahora, solo contamos huecos completos.
+    if (largo > 0 && alto > 0) {
+      huecosArray.push({ largo: +largo.toFixed(3), alto: +alto.toFixed(3) }); // Guardar con precisión
+    } else if (largoInput?.value.trim() || altoInput?.value.trim()) {
+      console.warn("Hueco inválido o incompleto detectado en:", row.id);
+      // Aquí podrías añadir una clase de error al input o a la fila
+      // row.classList.add('hueco-invalido');
+    }
+  });
 
-     // Calcular nueva cantidad
-     const nuevaCantidad = calcularCantidadDetalle(longitud, cotaInf, cotaSup, huecosArray);
+  // --- Calcular nueva cantidad ---
+  const nuevaCantidad = calcularCantidadDetalle(
+    longitud,
+    cotaInf,
+    cotaSup,
+    huecosArray
+  );
 
-     // Actualizar display
-     const displayCantidad = divForm.querySelector('.cantidad-calculada-display');
-     if (displayCantidad) {
-         displayCantidad.textContent = nuevaCantidad.toFixed(3);
-     }
+  // --- Actualizar display de cantidad del mini-form ---
+  const displayCantidad = divForm.querySelector(".cantidad-calculada-display");
+  if (displayCantidad) {
+    displayCantidad.textContent = nuevaCantidad.toFixed(3); // Mostrar con 3 decimales
+  }
 
-     // --- TODO: Llamar a guardarDetalleSuperficie (con debounce si es por input) ---
-     // Prepara el objeto 'detalle' con TODOS los datos actuales
-     const detalleParaGuardar = {
-         expediente: sessionStorage.getItem("expedienteSeleccionado"), // Obtenerlo de nuevo
-         estancia: divForm.dataset.roomId,
-         codigoProducto: divForm.dataset.codigoProducto,
-         idSuperficie: divForm.dataset.idSuperficie,
-         cotaInferior: cotaInf,
-         cotaSuperior: cotaSup,
-         longitudSuperficie: longitud,
-         huecosJSON: huecosArray // El array recalculado
-     };
-      console.log("Llamando a guardar (simulado):", detalleParaGuardar);
-      // ¡¡OJO!! Llamar con debounce si viene de 'input', directo si viene de 'removeHueco' o 'change'
-      // Por ahora, solo logueamos. Necesita integración con debounce y llamada real.
-      // guardarDetalleDebounced(detalleParaGuardar); // Necesitarías definir esta función con debounce
+  // --- Preparar datos y llamar a guardar en backend (con debounce si aplica) ---
+  const detalleParaGuardar = {
+    expediente: sessionStorage.getItem("expedienteSeleccionado"),
+    estancia: divForm.dataset.roomId,
+    codigoProducto: divForm.dataset.codigoProducto,
+    idSuperficie: divForm.dataset.idSuperficie,
+    cotaInferior: cotaInf,
+    cotaSuperior: cotaSup,
+    longitudSuperficie: longitud,
+    huecosJSON: huecosArray, // El array de objetos hueco (se hará JSON.stringify en backend o al enviar)
+    // El ID_Detalle no lo enviamos, el backend lo busca o crea uno nuevo si es inserción
+  };
 
-     // --- TODO: Actualizar cantidad total del producto ---
-     // updateTotalQuantityDisplay(divForm.dataset.codigoProducto);
+  // Llamar a la función debounced SIEMPRE, ella gestiona el retardo
+  guardarDetalleDebounced(detalleParaGuardar);
+
+  // IMPORTANTE: La actualización de la CANTIDAD TOTAL del producto
+  // debería hacerse en el SUCCESS HANDLER de la llamada debounced,
+  // para reflejar el valor una vez GUARDADO en el backend.
+  // Por eso quitamos la llamada a updateTotalQuantityDisplay de aquí.
 }
 
+/**
+ * Recalcula la suma de m² de todos los mini-forms para un producto
+ * y actualiza el display de cantidad total principal en el cromo.
+ * También llama a recalcularDiferencia global.
+ * @param {string} codigoProducto - El código del producto a actualizar.
+ */
+function updateTotalQuantityDisplay(codigoProducto) {
+  console.log(`Actualizando cantidad total para ${codigoProducto}`);
+  let sumaTotal = 0;
+
+  // Encontrar TODOS los mini-forms para este producto
+  const miniForms = document.querySelectorAll(
+    `.mini-form-superficie[data-codigo-producto="${codigoProducto}"]`
+  );
+
+  miniForms.forEach((form) => {
+    const displayCantidad = form.querySelector(".cantidad-calculada-display");
+    // Asegurarse de que el texto se puede convertir a número
+    const cantidad = parseFloat(displayCantidad?.textContent) || 0;
+    sumaTotal += cantidad;
+  });
+
+  // Encontrar el display principal (el input readonly que creamos)
+  const displayTotal = document.getElementById(
+    `cantidad-total-${codigoProducto}`
+  );
+  if (displayTotal) {
+    console.log(
+      ` - Suma total para ${codigoProducto}: ${sumaTotal.toFixed(3)} m²`
+    );
+    displayTotal.value = sumaTotal.toFixed(3); // Actualizar valor del input readonly
+
+    // --- Disparar evento 'input' para que otras funciones reaccionen si es necesario ---
+    // O llamar directamente a la función que recalcula el presupuesto general
+    if (typeof recalcularDiferencia === "function") {
+      console.log(
+        "... Llamando a recalcularDiferencia después de actualizar total."
+      );
+      recalcularDiferencia();
+    }
+  } else {
+    console.warn(
+      `No se encontró el display de cantidad total para <span class="math-inline">\{codigoProducto\} \(ID\: cantidad\-total\-</span>{codigoProducto})`
+    );
+  }
+}
 
 // --- NECESITARÁS EL HANDLER PARA BORRAR SUPERFICIE (Implementación básica) ---
- function handleDeleteSurfaceAssignment(formId) {
-     const divForm = document.getElementById(formId);
-     if (!divForm) return;
+function handleDeleteSurfaceAssignment(formId) {
+  const divForm = document.getElementById(formId);
+  if (!divForm) return;
 
-     const expediente = sessionStorage.getItem("expedienteSeleccionado");
-     const estancia = divForm.dataset.roomId;
-     const codigoProducto = divForm.dataset.codigoProducto;
-     const idSuperficie = divForm.dataset.idSuperficie;
+  const expediente = sessionStorage.getItem("expedienteSeleccionado");
+  const estancia = divForm.dataset.roomId;
+  const codigoProducto = divForm.dataset.codigoProducto;
+  const idSuperficie = divForm.dataset.idSuperficie;
 
-     if (!expediente || !estancia || !codigoProducto || !idSuperficie) {
-         alert("Error: No se pueden identificar los datos para eliminar la superficie.");
-         return;
-     }
+  if (!expediente || !estancia || !codigoProducto || !idSuperficie) {
+    alert(
+      "Error: No se pueden identificar los datos para eliminar la superficie."
+    );
+    return;
+  }
 
-      // Confirmación (Opcional pero MUY recomendable)
-     if (!confirm(`¿Seguro que quieres eliminar la asignación del producto ${codigoProducto} a la superficie ${idSuperficie}? Se perderán las cotas y huecos guardados.`)) {
-         return;
-     }
+  // Confirmación (Opcional pero MUY recomendable)
+  if (
+    !confirm(
+      `¿Seguro que quieres eliminar la asignación del producto ${codigoProducto} a la superficie ${idSuperficie}? Se perderán las cotas y huecos guardados.`
+    )
+  ) {
+    return;
+  }
 
-     console.log(`Solicitando eliminar detalle: ${expediente}, ${estancia}, ${codigoProducto}, ${idSuperficie}`);
+  console.log(
+    `Solicitando eliminar detalle: ${expediente}, ${estancia}, ${codigoProducto}, ${idSuperficie}`
+  );
 
-     const detallePK = { expediente, estancia, codigoProducto, idSuperficie };
+  const detallePK = { expediente, estancia, codigoProducto, idSuperficie };
 
-     // Mostrar feedback
-     divForm.style.opacity = '0.5';
+  // Mostrar feedback
+  divForm.style.opacity = "0.5";
 
-     google.script.run
-         .withSuccessHandler(respuesta => {
-             console.log("Respuesta de eliminarDetalleSuperficie:", respuesta);
-             if (respuesta && respuesta.status === 'success') {
-                 // Eliminar elemento visual del SVG
-                 const svgElement = divForm.closest('.plano-estancia')?.querySelector('svg');
-                 const visualElement = svgElement?.querySelector(`.indicador-asignacion[data-asignacion-codigo="<span class="math-inline">\{codigoProducto\}"\]\[data\-asignacion\-id\="</span>{idSuperficie}"]`);
-                 if (visualElement) {
-                      console.log("Eliminando indicador visual:", visualElement.id);
-                      visualElement.remove();
-                 } else {
-                      console.warn("No se encontró el indicador visual para eliminar.");
-                 }
-                 // Eliminar el mini-form del DOM
-                 divForm.remove();
-                 // TODO: Actualizar cantidad total
-                 // updateTotalQuantityDisplay(codigoProducto);
-                 mostrarNotificacion("Asignación de superficie eliminada.");
-
-             } else {
-                  alert("Error al eliminar la asignación de superficie: " + (respuesta?.message || "Error desconocido"));
-                  divForm.style.opacity = '1'; // Restaurar opacidad si falla
-             }
-         })
-         .withFailureHandler(error => {
-              handleScriptError(error); // Usar manejador genérico
-              divForm.style.opacity = '1'; // Restaurar opacidad si falla
-         })
-         .eliminarDetalleSuperficie(detallePK); // Llamar a la función backend correcta
- }
-
+  google.script.run
+    .withSuccessHandler((respuesta) => {
+      console.log("Respuesta de eliminarDetalleSuperficie:", respuesta);
+      if (respuesta && respuesta.status === "success") {
+        // Eliminar elemento visual del SVG
+        // --- CORREGIDO: Buscar por ID único ---
+        const visualElement = document.getElementById(visualId); // Buscar por ID
+        if (visualElement) {
+          console.log("Eliminando indicador visual:", visualElement.id);
+          visualElement.remove();
+        } else {
+          console.warn(
+            `No se encontró el indicador visual para eliminar con ID: ${visualId}`
+          ); // Log más específico
+        }
+        // --- FIN CORRECCIÓN ---
+        // Eliminar el mini-form del DOM
+        divForm.remove();
+        // TODO: Actualizar cantidad total
+        // updateTotalQuantityDisplay(codigoProducto);
+        mostrarNotificacion("Asignación de superficie eliminada.");
+      } else {
+        alert(
+          "Error al eliminar la asignación de superficie: " +
+            (respuesta?.message || "Error desconocido")
+        );
+        divForm.style.opacity = "1"; // Restaurar opacidad si falla
+      }
+    })
+    .withFailureHandler((error) => {
+      handleScriptError(error); // Usar manejador genérico
+      divForm.style.opacity = "1"; // Restaurar opacidad si falla
+    })
+    .eliminarDetalleSuperficie(detallePK); // Llamar a la función backend correcta
+}
 
 // --- NECESITARÁS LA FUNCIÓN attachListenersToMiniForm (Aún por implementar) ---
 // function attachListenersToMiniForm(formId) { ... }
@@ -550,10 +766,13 @@ function recalculateAndUpdateMiniForm(formId) {
  * @returns {SVGLineElement|null} El nuevo elemento <line> creado o null si hay error.
  */
 function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
-  const svgElement = lineaOriginal.closest('svg[data-room-id]'); // Encuentra el SVG padre
+  const svgElement = lineaOriginal.closest("svg[data-room-id]"); // Encuentra el SVG padre
   if (!svgElement) {
-      console.error("dibujarIndicadorPared: No se encontró SVG padre para", lineaOriginal);
-      return null;
+    console.error(
+      "dibujarIndicadorPared: No se encontró SVG padre para",
+      lineaOriginal
+    );
+    return null;
   }
   const svgNS = "http://www.w3.org/2000/svg";
 
@@ -566,13 +785,15 @@ function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
   const baseOffset = 10; // Desplazamiento base en píxeles SVG
   const stepOffset = 8; // Desplazamiento adicional por cada indicador existente
   const finalOffset = baseOffset + offsetIndex * stepOffset;
-  console.log(`Dibujando indicador para ${wallId} (Producto ${codigo}). Índice: ${offsetIndex}, Offset: ${finalOffset}`);
+  console.log(
+    `Dibujando indicador para ${wallId} (Producto ${codigo}). Índice: ${offsetIndex}, Offset: ${finalOffset}`
+  );
   // --- FIN Lógica de Offset ---
 
-  const x1 = parseFloat(lineaOriginal.getAttribute('x1'));
-  const y1 = parseFloat(lineaOriginal.getAttribute('y1'));
-  const x2 = parseFloat(lineaOriginal.getAttribute('x2'));
-  const y2 = parseFloat(lineaOriginal.getAttribute('y2'));
+  const x1 = parseFloat(lineaOriginal.getAttribute("x1"));
+  const y1 = parseFloat(lineaOriginal.getAttribute("y1"));
+  const x2 = parseFloat(lineaOriginal.getAttribute("x2"));
+  const y2 = parseFloat(lineaOriginal.getAttribute("y2"));
 
   const dx = x2 - x1;
   const dy = y2 - y1;
@@ -585,34 +806,33 @@ function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
   const midX = (x1 + x2) / 2;
   const midY = (y1 + y2) / 2;
   const vecToCenter = { x: 250 - midX, y: 250 - midY }; // Asume centro en 250,250
-  if ((nx * vecToCenter.x + ny * vecToCenter.y) < 0) {
-      nx = -nx;
-      ny = -ny;
+  if (nx * vecToCenter.x + ny * vecToCenter.y < 0) {
+    nx = -nx;
+    ny = -ny;
   }
 
   const newLine = document.createElementNS(svgNS, "line");
   // Aplicar el offset FINAL calculado
-  newLine.setAttribute('x1', (x1 + finalOffset * nx).toFixed(2));
-  newLine.setAttribute('y1', (y1 + finalOffset * ny).toFixed(2));
-  newLine.setAttribute('x2', (x2 + finalOffset * nx).toFixed(2));
-  newLine.setAttribute('y2', (y2 + finalOffset * ny).toFixed(2));
+  newLine.setAttribute("x1", (x1 + finalOffset * nx).toFixed(2));
+  newLine.setAttribute("y1", (y1 + finalOffset * ny).toFixed(2));
+  newLine.setAttribute("x2", (x2 + finalOffset * nx).toFixed(2));
+  newLine.setAttribute("y2", (y2 + finalOffset * ny).toFixed(2));
 
-  newLine.setAttribute('stroke', color);
-  newLine.setAttribute('stroke-width', '8');
-  newLine.setAttribute('stroke-linecap', 'round');
-  newLine.setAttribute('class', 'indicador-asignacion pared-asignada');
+  newLine.setAttribute("stroke", color);
+  newLine.setAttribute("stroke-width", "8");
+  newLine.setAttribute("stroke-linecap", "round");
+  newLine.setAttribute("class", "indicador-asignacion pared-asignada");
 
   // Datos para identificar esta asignación específica
-  newLine.setAttribute('data-asignacion-codigo', codigo);
-  newLine.setAttribute('data-asignacion-tipo', 'wall');
-  newLine.setAttribute('data-asignacion-id', wallId);
+  newLine.setAttribute("data-asignacion-codigo", codigo);
+  newLine.setAttribute("data-asignacion-tipo", "wall");
+  newLine.setAttribute("data-asignacion-id", wallId);
   // Generamos un ID único para poder referenciarlo fácilmente (ej, para borrarlo)
   const visualId = `asignacion-${codigo}-${wallId}-${Date.now()}`;
   newLine.setAttribute("id", visualId);
 
-
   // Insertar DESPUÉS de la línea original
-  lineaOriginal.insertAdjacentElement('afterend', newLine);
+  lineaOriginal.insertAdjacentElement("afterend", newLine);
 
   return newLine; // Devolver la línea creada
 }
@@ -627,49 +847,58 @@ function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
  * @returns {SVGPolygonElement|null} El nuevo elemento <polygon> creado o null si hay error.
  */
 function dibujarIndicadorSuelo(poligonoOriginal, codigo, color) {
-  const svgElement = poligonoOriginal.closest('svg[data-room-id]');
+  const svgElement = poligonoOriginal.closest("svg[data-room-id]");
   if (!svgElement) {
-     console.error("dibujarIndicadorSuelo: No se encontró SVG padre para", poligonoOriginal);
-     return null;
+    console.error(
+      "dibujarIndicadorSuelo: No se encontró SVG padre para",
+      poligonoOriginal
+    );
+    return null;
   }
- const svgNS = "http://www.w3.org/2000/svg";
+  const svgNS = "http://www.w3.org/2000/svg";
 
- // --- Lógica de Opacidad (Alternativa a Offset para suelo) ---
- // Buscar indicadores de suelo existentes
- const selector = '.indicador-asignacion[data-asignacion-tipo="floor"]';
- const existingIndicators = svgElement.querySelectorAll(selector);
- const baseOpacity = 0.6;
- const opacityStep = 0.05; // Reducir opacidad ligeramente por cada capa
- const finalOpacity = Math.max(0.1, baseOpacity - existingIndicators.length * opacityStep); // Evitar opacidad 0 o negativa
-  console.log(`Dibujando indicador para suelo (Producto ${codigo}). Capa: ${existingIndicators.length}, Opacidad: ${finalOpacity}`);
- // --- Fin Lógica de Opacidad ---
+  // --- Lógica de Opacidad (Alternativa a Offset para suelo) ---
+  // Buscar indicadores de suelo existentes
+  const selector = '.indicador-asignacion[data-asignacion-tipo="floor"]';
+  const existingIndicators = svgElement.querySelectorAll(selector);
+  const baseOpacity = 0.6;
+  const opacityStep = 0.05; // Reducir opacidad ligeramente por cada capa
+  const finalOpacity = Math.max(
+    0.1,
+    baseOpacity - existingIndicators.length * opacityStep
+  ); // Evitar opacidad 0 o negativa
+  console.log(
+    `Dibujando indicador para suelo (Producto ${codigo}). Capa: ${existingIndicators.length}, Opacidad: ${finalOpacity}`
+  );
+  // --- Fin Lógica de Opacidad ---
 
+  const newPolygon = document.createElementNS(svgNS, "polygon");
+  newPolygon.setAttribute("points", poligonoOriginal.getAttribute("points"));
 
- const newPolygon = document.createElementNS(svgNS, "polygon");
- newPolygon.setAttribute('points', poligonoOriginal.getAttribute('points'));
+  newPolygon.setAttribute("fill", color);
+  newPolygon.setAttribute("fill-opacity", finalOpacity.toFixed(2)); // Aplicar opacidad calculada
+  newPolygon.setAttribute("stroke", "none"); // Sin borde para que no se acumulen
+  newPolygon.setAttribute("class", "indicador-asignacion suelo-asignado");
 
- newPolygon.setAttribute('fill', color);
- newPolygon.setAttribute('fill-opacity', finalOpacity.toFixed(2)); // Aplicar opacidad calculada
- newPolygon.setAttribute('stroke', 'none'); // Sin borde para que no se acumulen
- newPolygon.setAttribute('class', 'indicador-asignacion suelo-asignado');
+  // Datos para identificar esta asignación específica
+  newPolygon.setAttribute("data-asignacion-codigo", codigo);
+  newPolygon.setAttribute("data-asignacion-tipo", "floor");
+  newPolygon.setAttribute("data-asignacion-id", "floor"); // ID genérico para suelo
+  // Generamos un ID único
+  const visualId = `asignacion-${codigo}-floor-${Date.now()}`;
+  newPolygon.setAttribute("id", visualId);
 
- // Datos para identificar esta asignación específica
- newPolygon.setAttribute('data-asignacion-codigo', codigo);
- newPolygon.setAttribute('data-asignacion-tipo', 'floor');
- newPolygon.setAttribute('data-asignacion-id', 'floor'); // ID genérico para suelo
- // Generamos un ID único
- const visualId = `asignacion-${codigo}-floor-${Date.now()}`;
- newPolygon.setAttribute("id", visualId);
+  // Insertar DESPUÉS del polígono original (o del último indicador de suelo)
+  if (existingIndicators.length > 0) {
+    existingIndicators[existingIndicators.length - 1].insertAdjacentElement(
+      "afterend",
+      newPolygon
+    );
+  } else {
+    poligonoOriginal.insertAdjacentElement("afterend", newPolygon);
+  }
 
- // Insertar DESPUÉS del polígono original (o del último indicador de suelo)
- if (existingIndicators.length > 0) {
-    existingIndicators[existingIndicators.length - 1].insertAdjacentElement('afterend', newPolygon);
- } else {
-    poligonoOriginal.insertAdjacentElement('afterend', newPolygon);
- }
-
-
- return newPolygon;
+  return newPolygon;
 }
 
 // --- DENTRO de generarPlanoEstancia.js ---
@@ -690,20 +919,22 @@ function calcularCantidadDetalle(longitud, cotaInf, cotaSup, huecosArray) {
 
   // Sumar el área de los huecos válidos
   if (Array.isArray(huecosArray)) {
-      huecosArray.forEach(h => {
-          const largo = parseFloat(h?.largo) || 0;
-          const alto = parseFloat(h?.alto) || 0;
-          if (largo > 0 && alto > 0) {
-              restaHuecos += (largo * alto);
-          }
-      });
+    huecosArray.forEach((h) => {
+      const largo = parseFloat(h?.largo) || 0;
+      const alto = parseFloat(h?.alto) || 0;
+      if (largo > 0 && alto > 0) {
+        restaHuecos += largo * alto;
+      }
+    });
   }
 
   const alturaNeta = cSup - cInf;
   // Asegurarse que la altura neta no sea negativa
   if (alturaNeta < 0) {
-       console.warn(`Cálculo cantidad: Cota superior (${cSup}) es menor que inferior (${cInf}). Usando altura 0.`);
-       return 0;
+    console.warn(
+      `Cálculo cantidad: Cota superior (${cSup}) es menor que inferior (${cInf}). Usando altura 0.`
+    );
+    return 0;
   }
 
   const cantidadBruta = long * alturaNeta;
@@ -713,51 +944,77 @@ function calcularCantidadDetalle(longitud, cotaInf, cotaSup, huecosArray) {
   return +cantidadNeta.toFixed(3);
 }
 
-
 /**
-* Crea y añade el HTML del mini-formulario para un detalle de superficie.
-* @param {object} detalleData - Objeto con los datos del detalle (puede tener valores por defecto si es nuevo).
-* Ej: { idDetalle?, idSuperficie, cotaInferior?, cotaSuperior?, longitudSuperficie?, huecosJSON? }
-* @param {HTMLElement} contenedorDOM - El elemento HTML donde se añadirá este formulario.
-* @param {string} roomId - El ID de la habitación.
-* @param {string} codigoProducto - El código del producto asociado.
-* @returns {HTMLElement|null} El elemento div principal del formulario creado o null si hay error.
-*/
-function crearMiniFormularioSuperficie(detalleData, contenedorDOM, roomId, codigoProducto) {
-  console.log(`Creando mini-form para:`, { detalleData, roomId, codigoProducto });
+ * Crea y añade el HTML del mini-formulario para un detalle de superficie.
+ * @param {object} detalleData - Objeto con los datos del detalle (puede tener valores por defecto si es nuevo).
+ * Ej: { idDetalle?, idSuperficie, cotaInferior?, cotaSuperior?, longitudSuperficie?, huecosJSON? }
+ * @param {HTMLElement} contenedorDOM - El elemento HTML donde se añadirá este formulario.
+ * @param {string} roomId - El ID de la habitación.
+ * @param {string} codigoProducto - El código del producto asociado.
+ * @returns {HTMLElement|null} El elemento div principal del formulario creado o null si hay error.
+ */
+function crearMiniFormularioSuperficie(
+  detalleData,
+  contenedorDOM,
+  roomId,
+  codigoProducto
+) {
+  console.log(`Creando mini-form para:`, {
+    detalleData,
+    roomId,
+    codigoProducto,
+  });
 
   // --- Obtener valores o establecer defaults ---
   // Usar ID_Detalle real si existe (al restaurar), o uno temporal si es nuevo
   const idSuperficie = detalleData.idSuperficie;
-  const idDetalle = detalleData.idDetalle || `new-${idSuperficie}-${Date.now()}`;
+  const idDetalle =
+    detalleData.idDetalle || `new-${idSuperficie}-${Date.now()}`;
   if (!idSuperficie) {
-       console.error("Error crítico: Falta idSuperficie para crear mini-form.");
-       return null;
-   }
+    console.error("Error crítico: Falta idSuperficie para crear mini-form.");
+    return null;
+  }
 
-  const cotaInf = detalleData.cotaInferior !== undefined ? detalleData.cotaInferior : 0;
+  const cotaInf =
+    detalleData.cotaInferior !== undefined ? detalleData.cotaInferior : 0;
 
   // Obtener altura por defecto (NECESITA IMPLEMENTACIÓN de getRoomHeight)
   // Asumimos 2.5 como fallback si getRoomHeight no está lista o falla
-  const alturaDefault = getRoomHeight(roomId) || 2.50;
-  const cotaSup = detalleData.cotaSuperior !== undefined ? detalleData.cotaSuperior : alturaDefault;
+  const alturaDefault = getRoomHeight(roomId) || 2.5;
+  const cotaSup =
+    detalleData.cotaSuperior !== undefined
+      ? detalleData.cotaSuperior
+      : alturaDefault;
 
   // Obtener longitud (NECESITA IMPLEMENTACIÓN de getSegmentLength)
   // Asumimos 0 como fallback si getSegmentLength no está lista o falla
-  const longitud = detalleData.longitudSuperficie !== undefined ? detalleData.longitudSuperficie : (getSegmentLength(idSuperficie, roomId) || 0);
+  const longitud =
+    detalleData.longitudSuperficie !== undefined
+      ? detalleData.longitudSuperficie
+      : getSegmentLength(idSuperficie, roomId) || 0;
 
   // Huecos: Asegurarse que es un array
-  const huecos = Array.isArray(detalleData.huecosJSON) ? detalleData.huecosJSON : [];
+  const huecos = Array.isArray(detalleData.huecosJSON)
+    ? detalleData.huecosJSON
+    : [];
 
   // Calcular cantidad inicial
-  const cantidadInicial = calcularCantidadDetalle(longitud, cotaInf, cotaSup, huecos);
+  const cantidadInicial = calcularCantidadDetalle(
+    longitud,
+    cotaInf,
+    cotaSup,
+    huecos
+  );
 
   // ID único para el contenedor del formulario
-  const formId = `miniform-${roomId}-${codigoProducto}-${idSuperficie.replace(/[^a-zA-Z0-9]/g, '')}`; // Crear ID válido para HTML
+  const formId = `miniform-${roomId}-${codigoProducto}-${idSuperficie.replace(
+    /[^a-zA-Z0-9]/g,
+    ""
+  )}`; // Crear ID válido para HTML
 
   // --- Crear estructura HTML ---
-  const divForm = document.createElement('div');
-  divForm.className = 'mini-form-superficie'; // Clase principal para estilos
+  const divForm = document.createElement("div");
+  divForm.className = "mini-form-superficie"; // Clase principal para estilos
   divForm.id = formId;
   // Guardar datos clave en atributos data-* para fácil acceso desde listeners
   divForm.dataset.idDetalle = idDetalle; // Puede ser 'new-...' inicialmente
@@ -783,14 +1040,18 @@ function crearMiniFormularioSuperficie(detalleData, contenedorDOM, roomId, codig
 
   // --- Añadir filas para huecos existentes ---
   huecos.forEach((hueco, index) => {
-      // Generar ID único para la fila del hueco
-       const huecoRowId = `${formId}-hueco-${index}`;
-       // Usamos comillas simples dentro del onclick para el formId
-       formHTML += `
+    // Generar ID único para la fila del hueco
+    const huecoRowId = `${formId}-hueco-${index}`;
+    // Usamos comillas simples dentro del onclick para el formId
+    formHTML += `
           <div class="hueco-row" id="${huecoRowId}" data-hueco-index="${index}">
               <label>H${index + 1} (m):</label>
-              L: <input type="number" class="hueco-input" data-prop="largo" step="0.01" min="0" value="${hueco.largo || ''}" placeholder="Largo">
-              &times; Al: <input type="number" class="hueco-input" data-prop="alto" step="0.01" min="0" value="${hueco.alto || ''}" placeholder="Alto">
+              L: <input type="number" class="hueco-input" data-prop="largo" step="0.01" min="0" value="${
+                hueco.largo || ""
+              }" placeholder="Largo">
+              &times; Al: <input type="number" class="hueco-input" data-prop="alto" step="0.01" min="0" value="${
+                hueco.alto || ""
+              }" placeholder="Alto">
               <button type="button" class="remove-hueco-btn" title="Eliminar Hueco" onclick="removeHueco('${huecoRowId}', '${formId}')">&times;</button>
           </div>`;
   });
@@ -802,7 +1063,9 @@ function crearMiniFormularioSuperficie(detalleData, contenedorDOM, roomId, codig
       </div>
       <div class="mini-form-resultado">
           <strong>Cantidad (m²):</strong>
-          <span class="cantidad-calculada-display">${cantidadInicial.toFixed(3)}</span>
+          <span class="cantidad-calculada-display">${cantidadInicial.toFixed(
+            3
+          )}</span>
       </div>
       <div class="mini-form-actions">
            <button type="button" class="delete-surface-btn" title="Eliminar asignación de esta superficie" onclick="handleDeleteSurfaceAssignment('${formId}')">Eliminar Superficie</button>
@@ -813,15 +1076,18 @@ function crearMiniFormularioSuperficie(detalleData, contenedorDOM, roomId, codig
 
   // --- Añadir al DOM ---
   if (contenedorDOM && contenedorDOM.appendChild) {
-      contenedorDOM.appendChild(divForm);
-      console.log(`Mini-form ${formId} añadido al DOM.`);
-      // --- Adjuntar Listeners (próximo paso) ---
-      // Aquí llamaríamos a la función que añade los listeners de input, etc.
-      // attachListenersToMiniForm(formId);
-      return divForm; // Devolver el elemento creado
+    contenedorDOM.appendChild(divForm);
+    console.log(`Mini-form ${formId} añadido al DOM.`);
+    // --- Adjuntar Listeners (próximo paso) ---
+    // Aquí llamaríamos a la función que añade los listeners de input, etc.
+    // attachListenersToMiniForm(formId);
+    return divForm; // Devolver el elemento creado
   } else {
-      console.error("Contenedor DOM no válido para el mini-formulario:", contenedorDOM);
-      return null;
+    console.error(
+      "Contenedor DOM no válido para el mini-formulario:",
+      contenedorDOM
+    );
+    return null;
   }
 }
 
@@ -829,180 +1095,249 @@ function crearMiniFormularioSuperficie(detalleData, contenedorDOM, roomId, codig
 
 function getRoomHeight(roomId) {
   // TODO: Implementar lógica para obtener la altura de window.geometriaPorRoom
-  const roomData = window.geometriaPorRoom ? window.geometriaPorRoom[roomId] : null;
+  const roomData = window.geometriaPorRoom
+    ? window.geometriaPorRoom[roomId]
+    : null;
   if (roomData && roomData.alturaTecho !== undefined) {
-      return roomData.alturaTecho;
+    return roomData.alturaTecho;
   }
-  console.warn(`getRoomHeight: No se encontró altura para room ${roomId}. Usando fallback 2.5`);
+  console.warn(
+    `getRoomHeight: No se encontró altura para room ${roomId}. Usando fallback 2.5`
+  );
   return 2.5; // Valor por defecto temporal
 }
 
 function getSegmentLength(idSuperficie, roomId) {
-   // TODO: Implementar lógica para obtener la longitud de window.geometriaPorRoom
-   if (idSuperficie === 'floor') return 0; // Suelo no tiene longitud lineal definida así
-   const roomData = window.geometriaPorRoom ? window.geometriaPorRoom[roomId] : null;
-   const pared = roomData?.paredes?.find(p => p.wallId === idSuperficie);
-   if (pared && pared.longitudOriginal !== undefined) {
-       return pared.longitudOriginal;
-   }
-   console.warn(`getSegmentLength: No se encontró longitud para superficie ${idSuperficie} en room ${roomId}. Usando fallback 0`);
-   return 0; // Valor por defecto temporal
+  // TODO: Implementar lógica para obtener la longitud de window.geometriaPorRoom
+  if (idSuperficie === "floor") return 0; // Suelo no tiene longitud lineal definida así
+  const roomData = window.geometriaPorRoom
+    ? window.geometriaPorRoom[roomId]
+    : null;
+  const pared = roomData?.paredes?.find((p) => p.wallId === idSuperficie);
+  if (pared && pared.longitudOriginal !== undefined) {
+    return pared.longitudOriginal;
+  }
+  console.warn(
+    `getSegmentLength: No se encontró longitud para superficie ${idSuperficie} en room ${roomId}. Usando fallback 0`
+  );
+  return 0; // Valor por defecto temporal
 }
 
 // --- FIN FUNCIONES PLACEHOLDER ---
 
 // --- 7. Nueva Función: `eliminarAsignacion` (Llamada por botón o click en indicador) ---
 
-function eliminarAsignacion(codigo, tipoSuperficie, idSuperficie, roomId, visualElementId) {
-  console.log(`Solicitando eliminar asignación de ${codigo} de ${tipoSuperficie} ${idSuperficie} en ${roomId}`);
+function eliminarAsignacion(
+  codigo,
+  tipoSuperficie,
+  idSuperficie,
+  roomId,
+  visualElementId
+) {
+  console.log(
+    `Solicitando eliminar asignación de ${codigo} de ${tipoSuperficie} ${idSuperficie} en ${roomId}`
+  );
 
   const elementoVisual = document.getElementById(visualElementId);
   if (!elementoVisual) {
-      console.warn(`No se encontró el elemento visual con ID: ${visualElementId} para eliminar.`);
-      // Opcional: intentar restaurar el botón si no se encuentra el elemento visual?
-      // restaurarBotonAsignar(codigo); // Necesitaría esta función auxiliar
-      // return; // Salir si no encontramos qué eliminar visualmente
+    console.warn(
+      `No se encontró el elemento visual con ID: ${visualElementId} para eliminar.`
+    );
+    // Opcional: intentar restaurar el botón si no se encuentra el elemento visual?
+    // restaurarBotonAsignar(codigo); // Necesitaría esta función auxiliar
+    // return; // Salir si no encontramos qué eliminar visualmente
   }
 
   // Mostrar feedback (ej. atenuar) - Opcional
-  if(elementoVisual) elementoVisual.style.opacity = '0.3';
+  if (elementoVisual) elementoVisual.style.opacity = "0.3";
 
   const datosParaEliminar = {
-      expediente: window.expedienteActual,
-      codigoProducto: codigo,
-      estancia: roomId,
-      superficie: idSuperficie
+    expediente: window.expedienteActual,
+    codigoProducto: codigo,
+    estancia: roomId,
+    superficie: idSuperficie,
   };
 
   google.script.run
-      .withSuccessHandler(respuesta => {
-          console.log("Asignación eliminada/actualizada en Sheet:", respuesta);
-          if (respuesta.status === "deleted" || respuesta.status === "not_found") { // Si se borró o no existía
-              // Eliminar Elemento Visual
-              if (elementoVisual && elementoVisual.parentNode) {
-                  elementoVisual.parentNode.removeChild(elementoVisual);
-              }
-              // Restaurar Botón Original
-              restaurarBotonAsignar(codigo); // Usar función auxiliar
-          } else {
-               console.error("Respuesta inesperada del backend al eliminar:", respuesta);
-                if(elementoVisual) elementoVisual.style.opacity = '1'; // Restaurar opacidad si algo raro pasó
-                alert("Ocurrió un error inesperado al intentar eliminar la asignación.");
-          }
-      })
-      .withFailureHandler(error => {
-          console.error("Error al eliminar/actualizar en Sheet:", error);
-          alert(`Error al eliminar la asignación para ${codigo}: ${error.message || error}`);
-          // Restaurar opacidad si falla
-          if(elementoVisual) elementoVisual.style.opacity = '1';
-      })
-      .eliminarAsignacion(datosParaEliminar);
+    .withSuccessHandler((respuesta) => {
+      console.log("Asignación eliminada/actualizada en Sheet:", respuesta);
+      if (respuesta.status === "deleted" || respuesta.status === "not_found") {
+        // Si se borró o no existía
+        // Eliminar Elemento Visual
+        if (elementoVisual && elementoVisual.parentNode) {
+          elementoVisual.parentNode.removeChild(elementoVisual);
+        }
+        // Restaurar Botón Original
+        restaurarBotonAsignar(codigo); // Usar función auxiliar
+      } else {
+        console.error(
+          "Respuesta inesperada del backend al eliminar:",
+          respuesta
+        );
+        if (elementoVisual) elementoVisual.style.opacity = "1"; // Restaurar opacidad si algo raro pasó
+        alert(
+          "Ocurrió un error inesperado al intentar eliminar la asignación."
+        );
+      }
+    })
+    .withFailureHandler((error) => {
+      console.error("Error al eliminar/actualizar en Sheet:", error);
+      alert(
+        `Error al eliminar la asignación para ${codigo}: ${
+          error.message || error
+        }`
+      );
+      // Restaurar opacidad si falla
+      if (elementoVisual) elementoVisual.style.opacity = "1";
+    })
+    .eliminarAsignacion(datosParaEliminar);
 }
 
 // --- 8. Función Auxiliar: `restaurarBotonAsignar` ---
 function restaurarBotonAsignar(codigo) {
-  const boton = document.querySelector(`button.eliminar[data-codigo="${codigo}"]`); // Buscar botón en estado "eliminar"
+  const boton = document.querySelector(
+    `button.eliminar[data-codigo="${codigo}"]`
+  ); // Buscar botón en estado "eliminar"
   if (boton) {
-      boton.textContent = "Asignar a superficie";
-      boton.classList.remove("eliminar");
-      boton.classList.add("asignar");
-      // Recuperar el color asociado a este producto (necesitamos encontrarlo en el DOM o tenerlo accesible)
-      let color = '#808080'; // Color por defecto si no lo encontramos
-      const cromo = boton.closest('.cromo-producto');
-      const colorBadge = cromo?.querySelector('.color-badge');
-      if (colorBadge) {
-          color = colorBadge.style.backgroundColor;
-      }
-      // Restaurar listener original
-      boton.onclick = (event) => asignarASuperficie(codigo, color, event);
+    boton.textContent = "Asignar a superficie";
+    boton.classList.remove("eliminar");
+    boton.classList.add("asignar");
+    // Recuperar el color asociado a este producto (necesitamos encontrarlo en el DOM o tenerlo accesible)
+    let color = "#808080"; // Color por defecto si no lo encontramos
+    const cromo = boton.closest(".cromo-producto");
+    const colorBadge = cromo?.querySelector(".color-badge");
+    if (colorBadge) {
+      color = colorBadge.style.backgroundColor;
+    }
+    // Restaurar listener original
+    boton.onclick = (event) => asignarASuperficie(codigo, color, event);
   } else {
-      console.warn(`No se encontró el botón 'Eliminar asignación' para el código ${codigo} para restaurar.`);
+    console.warn(
+      `No se encontró el botón 'Eliminar asignación' para el código ${codigo} para restaurar.`
+    );
   }
 }
 
+/**
+ * Lee los detalles de superficie de una asignación enriquecida
+ * y crea los indicadores visuales y mini-forms correspondientes.
+ * SE LLAMA DESPUÉS DE QUE EL PLANO SVG Y LOS CROMOS/CONTENEDORES ESTÉN EN EL DOM.
+ * @param {object} asignacionEnriquecida - El objeto asignación con el array `detallesSuperficie`.
+ * @param {string} divIdPlano - El ID del div que contiene el SVG del plano.
+ */
+function restaurarAsignacionesVisuales(asignacionEnriquecida, divIdPlano) {
+  const {
+    codigoProducto,
+    estancia: roomId,
+    detallesSuperficie,
+    tipo,
+  } = asignacionEnriquecida;
+  const esTipoEspecial = [
+    "Revestimiento cerámico",
+    "Pavimento laminado",
+    "Pavimento vinílico",
+  ].includes(tipo);
 
-// --- 9. Nueva Función: `restaurarAsignacionesVisuales` (Llamada después de generar plano) ---
-
-function restaurarAsignacionesVisuales(roomId, divId) {
-  console.log(`Restaurando asignaciones visuales para ${roomId} en ${divId}`);
-  const svgElement = document.querySelector(`#${divId} > svg[data-room-id="${roomId}"]`);
-  if (!svgElement || !window.expedienteActual) {
-      console.warn("No se encontró SVG o falta expediente para restaurar asignaciones de", roomId);
-      return;
+  // Solo procesar si es tipo especial Y tiene detalles
+  if (
+    !esTipoEspecial ||
+    !Array.isArray(detallesSuperficie) ||
+    detallesSuperficie.length === 0
+  ) {
+    return;
   }
 
-  google.script.run
-      .withSuccessHandler(asignacionesGuardadas => {
-          console.log(`Asignaciones recuperadas para ${window.expedienteActual}:`, asignacionesGuardadas);
-          const asignacionesRoom = asignacionesGuardadas.filter(asig => asig.estancia === roomId && asig.superficie); // Filtrar por room y que tengan superficie
+  console.log(
+    `Restaurando ${detallesSuperficie.length} detalles para ${codigoProducto} en ${roomId}`
+  );
 
-          asignacionesRoom.forEach(asig => {
-              const { codigoProducto, superficie: idSuperficie, tipo, color: colorGuardado } = asig; // Asume que la func backend devuelve tipo y color si es posible
-              const tipoSuperficie = idSuperficie === 'floor' ? 'floor' : 'wall';
+  const svgElement = document.querySelector(
+    `#<span class="math-inline">\{divIdPlano\} \> svg\[data\-room\-id\="</span>{roomId}"]`
+  );
+  if (!svgElement) {
+    console.error(
+      `restaurar: No se encontró SVG para ${roomId} en ${divIdPlano}`
+    );
+    return;
+  }
 
-               // --- Validar que no exista ya visulamente (por si acaso) ---
-               const selectorExistente = `[data-asignacion-codigo="${codigoProducto}"][data-asignacion-id="${idSuperficie}"]`;
-               if (svgElement.querySelector(selectorExistente)) {
-                    console.log(`Asignación para ${codigoProducto} en ${idSuperficie} ya está dibujada, saltando.`);
-                    return; // Ya está dibujado (quizás por una ejecución anterior), no duplicar
-               }
+  // Encontrar el contenedor para los mini-forms de este producto
+  const contenedorFormularios = findMiniFormContainer(roomId, codigoProducto);
+  if (!contenedorFormularios) {
+    console.error(
+      `restaurar: No se encontró contenedor de mini-forms para ${codigoProducto}`
+    );
+    return;
+  }
 
+  // Necesitamos el color asociado a este producto en la UI
+  let color = "#808080"; // Default
+  const botonAsignar = document.querySelector(
+    `button[data-codigo="${codigoProducto}"]`
+  );
+  const cromo = botonAsignar?.closest(".cromo-producto");
+  const colorBadge = cromo?.querySelector(".color-badge");
+  if (colorBadge) {
+    color = colorBadge.style.backgroundColor || color;
+  }
 
-              // Necesitamos el color. La función backend NO lo devuelve ahora.
-              // Estrategia: buscar el color en el cromo correspondiente
-              let color = '#808080'; // Gris por defecto
-              const botonAsignar = document.querySelector(`button[data-codigo="${codigoProducto}"]`);
-              const cromo = botonAsignar?.closest('.cromo-producto');
-              const colorBadge = cromo?.querySelector('.color-badge');
-               if (colorBadge) {
-                   color = colorBadge.style.backgroundColor || color;
-               } else {
-                   console.warn(`No se pudo encontrar el color para el producto ${codigoProducto} al restaurar.`);
-               }
+  // Iterar sobre los detalles guardados y recrear UI + Indicadores
+  detallesSuperficie.forEach((detalle) => {
+    const { idSuperficie } = detalle;
 
+    // 1. Dibujar Indicador Visual (con offset)
+    let elementoVisual;
+    if (idSuperficie === "floor") {
+      const poligonoOriginal = svgElement.querySelector("polygon.suelo");
+      if (poligonoOriginal)
+        elementoVisual = dibujarIndicadorSuelo(
+          poligonoOriginal,
+          codigoProducto,
+          color
+        );
+    } else {
+      // Es una pared
+      const lineaOriginal = svgElement.querySelector(
+        `line.pared[data-wall="${idSuperficie}"]`
+      );
+      if (lineaOriginal)
+        elementoVisual = dibujarIndicadorPared(
+          lineaOriginal,
+          codigoProducto,
+          idSuperficie,
+          color
+        );
+    }
 
-              // Dibujar el indicador
-              let elementoVisualAsignacion;
-              if (tipoSuperficie === 'wall') {
-                  const lineaOriginal = svgElement.querySelector(`line.pared[data-wall="${idSuperficie}"]`);
-                  if (lineaOriginal) {
-                      elementoVisualAsignacion = dibujarIndicadorPared(lineaOriginal, codigoProducto, idSuperficie, color);
-                  } else {
-                      console.warn(`Al restaurar, no se encontró la pared original ${idSuperficie} para ${codigoProducto}`);
-                  }
-              } else { // floor
-                  const poligonoOriginal = svgElement.querySelector('polygon.suelo');
-                  if (poligonoOriginal) {
-                      elementoVisualAsignacion = dibujarIndicadorSuelo(poligonoOriginal, codigoProducto, color);
-                  } else {
-                       console.warn(`Al restaurar, no se encontró el suelo original para ${codigoProducto}`);
-                  }
-              }
+    if (!elementoVisual) {
+      console.warn(
+        `restaurar: No se pudo dibujar indicador para ${idSuperficie}`
+      );
+      // Continuar con el siguiente detalle aunque falle el dibujo? O parar?
+      return; // Saltar este detalle si no se pudo dibujar
+    }
 
-              // Si se dibujó, añadir listener y actualizar botón
-              if (elementoVisualAsignacion) {
-                   // Generar ID único también al restaurar
-                   const visualId = `asignacion-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-                   elementoVisualAsignacion.setAttribute("id", visualId);
+    // Añadir listener de borrado al indicador recién dibujado
+    elementoVisual.addEventListener("click", (event) => {
+      event.stopPropagation();
+      handleDeleteSurfaceAssignment(elementoVisual.id); // Asume ID único asignado por dibujarIndicador...
+    });
+    elementoVisual.style.cursor = "pointer";
 
-                   elementoVisualAsignacion.addEventListener('click', (event) => {
-                       event.stopPropagation();
-                       eliminarAsignacion(codigoProducto, tipoSuperficie, idSuperficie, roomId, visualId);
-                   });
-                   elementoVisualAsignacion.style.cursor = 'pointer';
+    // 2. Crear Mini-Formulario (pasando los datos guardados)
+    const miniFormElement = crearMiniFormularioSuperficie(
+      detalle,
+      contenedorFormularios,
+      roomId,
+      codigoProducto
+    );
 
-                   // Actualizar el botón correspondiente
-                   if (botonAsignar && botonAsignar.classList.contains('asignar')) {
-                       botonAsignar.textContent = "Eliminar asignación";
-                       botonAsignar.classList.remove("asignar");
-                       botonAsignar.classList.add("eliminar");
-                       botonAsignar.onclick = () => eliminarAsignacion(codigoProducto, tipoSuperficie, idSuperficie, roomId, visualId);
-                   }
-              }
-          });
-      })
-      .withFailureHandler(error => {
-          console.error("Error al obtener asignaciones enriquecidas para restaurar:", error);
-      })
-      .obtenerAsignacionesEnriquecidasConSuperficie(window.expedienteActual); // Nueva función backend
-}
+    // 3. Adjuntar Listeners al Mini-Form recién creado (¡IMPORTANTE!)
+    if (miniFormElement) {
+      attachListenersToMiniForm(miniFormElement.id);
+    }
+  });
+
+  // 4. Actualizar la cantidad total del producto DESPUÉS de restaurar todos sus detalles
+  updateTotalQuantityDisplay(codigoProducto);
+} // Fin restaurarAsignacionesVisuales
