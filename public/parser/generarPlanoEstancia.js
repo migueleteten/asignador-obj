@@ -259,14 +259,14 @@ async function realizarAsignacion(tipoSuperficie, idSuperficie, elementoClicado)
 
 
               // 3. Actualizar Botón Original (si no se ha modificado ya por otra asignación)
-              if (botonOriginal && botonOriginal.classList.contains('asignar')) { // Solo cambiar si AÚN es "Asignar"
+              /*if (botonOriginal && botonOriginal.classList.contains('asignar')) { // Solo cambiar si AÚN es "Asignar"
                    botonOriginal.textContent = "Eliminar asignación"; // OJO: Este botón ahora debería DESCARTAR, no eliminar detalles? Revisar lógica de botones
                    botonOriginal.classList.remove("asignar");
                    botonOriginal.classList.add("eliminar"); // ¿O clase 'descartar'?
                    // El onclick debería ser para descartar el producto, no para eliminar superficie
                    // botonOriginal.onclick = () => descartarProducto(codigoProducto, roomId); // Revisar si esto es correcto
                    console.warn("Lógica del botón principal 'Eliminar asignación' necesita revisión para nueva funcionalidad.");
-              }
+              }*/
 
                // 4. Actualizar Cantidad Total (Paso futuro)
                // updateTotalQuantityDisplay(expedienteActual, roomId, codigoProducto);
@@ -308,8 +308,8 @@ function findMiniFormContainer(roomId, codigoProducto) {
       return null;
   }
   // 2. Subir al contenedor del tipo de producto (<details class="bloque-tipo">)
-  const detailElement = botonProducto.closest('.bloque-tipo');
-  if (!detailElement) {
+  const cromoElement = botonProducto.closest('.cromo-producto');
+  if (!cromoElement) {
        console.error(`findMiniFormContainer: No se encontró el <details> padre (.bloque-tipo) para ${codigoProducto}`);
        return null;
   }
@@ -323,6 +323,210 @@ function findMiniFormContainer(roomId, codigoProducto) {
   }
   return contenedor || null; // Devuelve el contenedor o null
 }
+
+/**
+ * Añade una nueva fila de inputs para un hueco en el mini-form especificado.
+ * @param {HTMLElement} addButton - El botón "+" que fue clickeado.
+ * @param {string} formId - El ID del mini-form padre.
+ */
+function addHueco(addButton, formId) {
+    const divForm = document.getElementById(formId);
+    if (!divForm) return;
+
+    const huecosContainer = divForm.querySelector('.huecos-container');
+    if (!huecosContainer) return;
+
+    const existingHuecos = huecosContainer.querySelectorAll('.hueco-row');
+    const newIndex = existingHuecos.length; // El índice del nuevo hueco
+
+    const huecoRowId = `<span class="math-inline">\{formId\}\-hueco\-</span>{newIndex}`;
+
+    // Crear la nueva fila
+    const newRow = document.createElement('div');
+    newRow.className = 'hueco-row';
+    newRow.id = huecoRowId;
+    newRow.dataset.huecoIndex = newIndex;
+    newRow.innerHTML = `
+        <label>H${newIndex + 1} (m):</label>
+        L: <input type="number" class="hueco-input" data-prop="largo" step="0.01" min="0" value="" placeholder="Largo">
+        &times; Al: <input type="number" class="hueco-input" data-prop="alto" step="0.01" min="0" value="" placeholder="Alto">
+        <button type="button" class="remove-hueco-btn" title="Eliminar Hueco" onclick="removeHueco('<span class="math-inline">\{huecoRowId\}', '</span>{formId}')">&times;</button>
+    `;
+
+    huecosContainer.appendChild(newRow);
+
+    // --- IMPORTANTE: Adjuntar listeners a los NUEVOS inputs ---
+    // Idealmente, la función attachListenersToMiniForm debería poder re-ejecutarse
+    // o usar delegación de eventos. Por ahora, añadimos listeners directamente:
+    const newInputs = newRow.querySelectorAll('.hueco-input');
+    newInputs.forEach(input => {
+         input.addEventListener('input', debounce(handleMiniFormInputChange, 500)); // Usar debounce
+         input.addEventListener('change', handleMiniFormInputChange); // Guardar en change también por si acaso
+         // Pasar referencia al form o su ID al handler si es necesario
+         input.dataset.formId = formId;
+    });
+
+     // Opcional: Deshabilitar el botón "+" anterior si queremos solo uno al final?
+     // addButton.disabled = true; // Podría complicar la lógica si se borran huecos
+}
+
+// --- NECESITARÁS ESTA FUNCIÓN DEBNounce (o una similar) ---
+// Colócala en algún lugar accesible de tu script
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func.apply(this, args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
+
+// --- NECESITARÁS EL HANDLER (Lo implementaremos después) ---
+function handleMiniFormInputChange(event) {
+    const input = event.target;
+    const formId = input.closest('.mini-form-superficie')?.id;
+    if (!formId) return;
+    console.log(`Input cambiado en ${formId}:`, input.dataset.prop, input.value);
+    // TODO:
+    // 1. Recalcular cantidad para ESTE form (leer todos sus inputs)
+    // 2. Actualizar el display de cantidad de ESTE form
+    // 3. Llamar a guardarDetalleSuperficie con TODOS los datos actuales del form (cotas, huecos actualizados)
+    // 4. Llamar a updateTotalQuantityDisplay para el producto general
+    recalculateAndUpdateMiniForm(formId); // Necesitaremos esta función
+}
+
+function removeHueco(huecoRowId, formId) {
+     const huecoRow = document.getElementById(huecoRowId);
+     if (huecoRow) {
+         huecoRow.remove();
+         // TODO: Recalcular, guardar y actualizar cantidad total
+          recalculateAndUpdateMiniForm(formId);
+     }
+}
+
+// --- NECESITARÁS ESTA FUNCIÓN (Implementación básica) ---
+function recalculateAndUpdateMiniForm(formId) {
+     const divForm = document.getElementById(formId);
+     if (!divForm) return;
+     console.log(`RECALCULANDO para ${formId}`);
+
+     // Leer todos los valores actuales del formulario
+     const cotaInfInput = divForm.querySelector('.cota-input[data-prop="cotaInferior"]');
+     const cotaSupInput = divForm.querySelector('.cota-input[data-prop="cotaSuperior"]');
+     const longitud = parseFloat(divForm.dataset.longitud) || 0;
+     const cotaInf = parseFloat(cotaInfInput?.value) || 0;
+     const cotaSup = parseFloat(cotaSupInput?.value) || 0;
+
+     const huecosArray = [];
+     divForm.querySelectorAll('.hueco-row').forEach(row => {
+         const largoInput = row.querySelector('.hueco-input[data-prop="largo"]');
+         const altoInput = row.querySelector('.hueco-input[data-prop="alto"]');
+         const largo = parseFloat(largoInput?.value) || 0;
+         const alto = parseFloat(altoInput?.value) || 0;
+          // Solo añadir si ambos son válidos (o como prefieras manejarlo)
+         if (largo > 0 && alto > 0) {
+             huecosArray.push({ largo: largo, alto: alto });
+         } else if (largoInput?.value || altoInput?.value) { // Si hay algo escrito pero no es válido
+             console.warn("Hueco inválido o incompleto en", row.id);
+             // Podrías marcar el input en rojo o ignorarlo
+         }
+     });
+
+     // Calcular nueva cantidad
+     const nuevaCantidad = calcularCantidadDetalle(longitud, cotaInf, cotaSup, huecosArray);
+
+     // Actualizar display
+     const displayCantidad = divForm.querySelector('.cantidad-calculada-display');
+     if (displayCantidad) {
+         displayCantidad.textContent = nuevaCantidad.toFixed(3);
+     }
+
+     // --- TODO: Llamar a guardarDetalleSuperficie (con debounce si es por input) ---
+     // Prepara el objeto 'detalle' con TODOS los datos actuales
+     const detalleParaGuardar = {
+         expediente: sessionStorage.getItem("expedienteSeleccionado"), // Obtenerlo de nuevo
+         estancia: divForm.dataset.roomId,
+         codigoProducto: divForm.dataset.codigoProducto,
+         idSuperficie: divForm.dataset.idSuperficie,
+         cotaInferior: cotaInf,
+         cotaSuperior: cotaSup,
+         longitudSuperficie: longitud,
+         huecosJSON: huecosArray // El array recalculado
+     };
+      console.log("Llamando a guardar (simulado):", detalleParaGuardar);
+      // ¡¡OJO!! Llamar con debounce si viene de 'input', directo si viene de 'removeHueco' o 'change'
+      // Por ahora, solo logueamos. Necesita integración con debounce y llamada real.
+      // guardarDetalleDebounced(detalleParaGuardar); // Necesitarías definir esta función con debounce
+
+     // --- TODO: Actualizar cantidad total del producto ---
+     // updateTotalQuantityDisplay(divForm.dataset.codigoProducto);
+}
+
+
+// --- NECESITARÁS EL HANDLER PARA BORRAR SUPERFICIE (Implementación básica) ---
+ function handleDeleteSurfaceAssignment(formId) {
+     const divForm = document.getElementById(formId);
+     if (!divForm) return;
+
+     const expediente = sessionStorage.getItem("expedienteSeleccionado");
+     const estancia = divForm.dataset.roomId;
+     const codigoProducto = divForm.dataset.codigoProducto;
+     const idSuperficie = divForm.dataset.idSuperficie;
+
+     if (!expediente || !estancia || !codigoProducto || !idSuperficie) {
+         alert("Error: No se pueden identificar los datos para eliminar la superficie.");
+         return;
+     }
+
+      // Confirmación (Opcional pero MUY recomendable)
+     if (!confirm(`¿Seguro que quieres eliminar la asignación del producto ${codigoProducto} a la superficie ${idSuperficie}? Se perderán las cotas y huecos guardados.`)) {
+         return;
+     }
+
+     console.log(`Solicitando eliminar detalle: ${expediente}, ${estancia}, ${codigoProducto}, ${idSuperficie}`);
+
+     const detallePK = { expediente, estancia, codigoProducto, idSuperficie };
+
+     // Mostrar feedback
+     divForm.style.opacity = '0.5';
+
+     google.script.run
+         .withSuccessHandler(respuesta => {
+             console.log("Respuesta de eliminarDetalleSuperficie:", respuesta);
+             if (respuesta && respuesta.status === 'success') {
+                 // Eliminar elemento visual del SVG
+                 const svgElement = divForm.closest('.plano-estancia')?.querySelector('svg');
+                 const visualElement = svgElement?.querySelector(`.indicador-asignacion[data-asignacion-codigo="<span class="math-inline">\{codigoProducto\}"\]\[data\-asignacion\-id\="</span>{idSuperficie}"]`);
+                 if (visualElement) {
+                      console.log("Eliminando indicador visual:", visualElement.id);
+                      visualElement.remove();
+                 } else {
+                      console.warn("No se encontró el indicador visual para eliminar.");
+                 }
+                 // Eliminar el mini-form del DOM
+                 divForm.remove();
+                 // TODO: Actualizar cantidad total
+                 // updateTotalQuantityDisplay(codigoProducto);
+                 mostrarNotificacion("Asignación de superficie eliminada.");
+
+             } else {
+                  alert("Error al eliminar la asignación de superficie: " + (respuesta?.message || "Error desconocido"));
+                  divForm.style.opacity = '1'; // Restaurar opacidad si falla
+             }
+         })
+         .withFailureHandler(error => {
+              handleScriptError(error); // Usar manejador genérico
+              divForm.style.opacity = '1'; // Restaurar opacidad si falla
+         })
+         .eliminarDetalleSuperficie(detallePK); // Llamar a la función backend correcta
+ }
+
+
+// --- NECESITARÁS LA FUNCIÓN attachListenersToMiniForm (Aún por implementar) ---
+// function attachListenersToMiniForm(formId) { ... }
 
 // --- 6. Funciones Auxiliares de Dibujo ---
 
@@ -582,9 +786,9 @@ function crearMiniFormularioSuperficie(detalleData, contenedorDOM, roomId, codig
 
   // Cerrar divs y añadir botón para añadir hueco
   formHTML += `
-          </div> {/* Fin huecos-container */}
+          </div> 
           <button type="button" class="add-hueco-btn" onclick="addHueco('${formId}')">+ Restar hueco</button>
-      </div> {/* Fin mini-form-huecos */}
+      </div>
       <div class="mini-form-resultado">
           <strong>Cantidad (m²):</strong>
           <span class="cantidad-calculada-display">${cantidadInicial.toFixed(3)}</span>
