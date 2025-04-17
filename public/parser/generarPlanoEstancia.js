@@ -1256,7 +1256,7 @@ function restaurarAsignacionesVisuales(asignacionEnriquecida, divIdPlano) {
 
     console.log(`Restaurando ${detallesSuperficie.length} detalles para ${codigoProducto} en ${roomId} (${divIdPlano})`);
 
-    const svgElement = document.querySelector(`#<span class=${divIdPlano} svg[data-room-id="${roomId}"]`);
+    const svgElement = document.querySelector(`#${divIdPlano} > svg[data-room-id="${roomId}"]`);
     if (!svgElement) {
         console.error(`restaurar: No se encontró SVG para ${roomId} en ${divIdPlano}`);
         return;
