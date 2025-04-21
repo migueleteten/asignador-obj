@@ -1,120 +1,147 @@
 // Este archivo depende de que parseOBJ.js se haya ejecutado antes
 
+/**
+ * Genera el SVG del plano de una estancia y lo inserta en el div especificado.
+ * MODIFICADO para leer datos del JSON consolidado cacheado en window.datosExpediente.
+ * @param {string} roomId - El ID de la estancia (ej. "room108").
+ * @param {string} divId - El ID del div contenedor donde se insertará el SVG.
+ */
 function generarPlanoEstancia(roomId, divId) {
-  console.log("🧩 Generando plano para roomId:", roomId, "div destino:", divId);
-  // console.log("📦 Geometría disponible:", window.geometriaPorRoom); // Puede ser muy verboso, opcional
+  console.log(`🧩 Generando plano para roomId: ${roomId}, div destino: ${divId}`);
 
   const contenedor = document.getElementById(divId);
   if (!contenedor) {
-    console.error("❌ No se encontró el contenedor con id:", divId); // Usar error para problemas críticos
-    return;
+      console.error(`❌ No se encontró el contenedor con id: ${divId}`);
+      // Escribir error en el contenedor si existe la variable, si no, log extra
+      if(typeof contenedor !== 'undefined' && contenedor !== null) {
+           contenedor.innerHTML = "<p style='color:red;'>Error: Contenedor no encontrado.</p>";
+      } else {
+           console.error("La variable 'contenedor' es nula o no definida incluso antes de getElementById.");
+      }
+      return;
   }
 
-  const geometria = window.geometriaPorRoom?.[roomId];
-  if (!geometria || !geometria.suelo || !geometria.paredes) {
-    // Verificar también la existencia de suelo/paredes
-    console.warn(
-      `⚠️ No hay geometría completa (suelo/paredes) para ${roomId} en geometriaPorRoom`
-    );
-    contenedor.innerHTML = `<p style='color: #999; padding: 10px;'>No hay datos suficientes para generar el plano de ${roomId}.</p>`;
-    return;
+  // --- LEER DATOS DEL JSON CONSOLIDADO CACHEADO ---
+  // Accedemos a la estancia específica usando el roomId
+  const estanciaData = window.datosExpediente?.estancias?.[roomId];
+  // --- FIN LECTURA ---
+
+  // Validar que tenemos los datos necesarios, incluyendo la geometría normalizada
+  if (!estanciaData || !estanciaData.geometriaPlanoNormalizada || !estanciaData.geometriaPlanoNormalizada.suelo || !estanciaData.geometriaPlanoNormalizada.paredes) {
+      console.warn(`⚠️ No hay geometría completa y normalizada para ${roomId} en window.datosExpediente.`);
+      contenedor.innerHTML = `<p style='color: #999; padding: 10px;'>No hay datos de plano procesados o válidos para ${roomId}. Ejecute el procesamiento primero.</p>`;
+      return;
   }
+
+  // Acceder a la geometría normalizada para facilitar el acceso
+  const geometriaNorm = estanciaData.geometriaPlanoNormalizada;
 
   const svgNS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(svgNS, "svg");
-  svg.setAttribute("viewBox", "0 0 500 500"); // Coincide con normalize
+  svg.setAttribute("viewBox", "0 0 500 500"); // Debe coincidir con la normalización
   svg.setAttribute("width", "100%");
-  // Ajustar altura si es necesario, o usar aspect ratio con viewBox
-  svg.setAttribute("preserveAspectRatio", "xMidYMid meet"); // Mejor para responsividad
-  svg.setAttribute("data-room-id", roomId);
-  svg.style.maxWidth = "500px"; // Limitar tamaño máximo si se desea
-  svg.style.display = "block"; // Evitar espacio extra debajo del SVG
-  svg.style.margin = "auto"; // Centrar si es necesario
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet"); // Buena opción responsiva
+  svg.setAttribute("data-room-id", roomId); // Guardar roomId en el SVG
+  svg.style.maxWidth = "500px"; // Limitar tamaño opcionalmente
+  svg.style.display = "block";
+  svg.style.margin = "auto";
+  svg.style.background = "#f8f8f8"; // Fondo muy claro para el SVG
 
-  // Dibujar suelo primero
-  if (Array.isArray(geometria.suelo) && geometria.suelo.length > 0) {
-    const suelo = document.createElementNS(svgNS, "polygon");
-    // --- CORRECCIÓN: Usar p.y en lugar de p.z ---
-    const puntos = geometria.suelo
-      .map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`)
-      .join(" ");
-    suelo.setAttribute("points", puntos);
-    suelo.setAttribute("fill", "#ffffff"); // Un gris más claro
-    suelo.setAttribute("stroke", "#cccccc"); // Borde más sutil
-    suelo.setAttribute("stroke-width", "15"); // Ancho de borde más fino
-    suelo.setAttribute("class", "suelo");
-    suelo.style.cursor = "pointer";
-    suelo.addEventListener("click", (event) => {
-      if (window.productoEnAsignacion) {
-        realizarAsignacion("floor", "floor", event.target); // 'floor' como idSuperficie
-      } else {
-        console.log("Click en suelo (sin producto para asignar)");
-      }
-    });
-    svg.appendChild(suelo);
-  } else {
-    console.warn(`Suelo para ${roomId} no es un array válido o está vacío.`);
-  }
-
-  // Dibujar paredes
-  if (Array.isArray(geometria.paredes)) {
-    geometria.paredes.forEach((pared, i) => {
-      // --- CORRECCIÓN: Desestructurar y1, y2 en lugar de z1, z2 ---
-      const { x1, y1, x2, y2, wallId } = pared;
-
-      // --- CORRECCIÓN: Usar y1, y2 para calcular dy ---
-      const dx = x2 - x1;
-      const dy = y2 - y1; // Usar y1, y2
-      const distancia = Math.sqrt(dx * dx + dy * dy);
-
-      // Descartar líneas muy cortas (puede ser útil si hay vértices duplicados cercanos)
-      if (distancia < 0.1) {
-        // Umbral muy pequeño
-        // console.log(`Descartando pared ${wallId || i} por ser muy corta: ${distancia.toFixed(3)}`);
-        return;
-      }
-
-      const linea = document.createElementNS(svgNS, "line");
-      // --- CORRECCIÓN: Establecer atributos y1, y2 ---
-      linea.setAttribute("x1", x1.toFixed(2));
-      linea.setAttribute("y1", y1.toFixed(2)); // Usar y1
-      linea.setAttribute("x2", x2.toFixed(2));
-      linea.setAttribute("y2", y2.toFixed(2)); // Usar y2
-
-      linea.setAttribute("stroke", "#888888"); // Un gris más oscuro para las paredes
-      linea.setAttribute("stroke-width", "15"); // Hacerlas un poco más gruesas
-      linea.setAttribute("stroke-linecap", "round"); // Extremos redondeados
-      if (wallId) {
-        // Solo añadir data-wall si existe
-        linea.setAttribute("data-wall", wallId);
-      } else {
-        console.warn(`Pared ${i} en ${roomId} no tiene wallId asignado.`);
-        linea.setAttribute("stroke", "#ff0000"); // Marcar en rojo paredes sin ID?
-      }
-      linea.setAttribute("class", "pared");
-      linea.style.cursor = "pointer";
-
-      if (wallId) {
-        // Solo añadir listener si la pared tiene ID
-        linea.addEventListener("click", (event) => {
+  // --- Dibujar Suelo (Usando geometriaNorm.suelo) ---
+  // La lógica es la misma, solo cambiamos la fuente de datos
+  if (Array.isArray(geometriaNorm.suelo) && geometriaNorm.suelo.length >= 3) {
+      const suelo = document.createElementNS(svgNS, "polygon");
+      const puntosSuelo = geometriaNorm.suelo
+          .map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`) // Usar p.x, p.y
+          .join(" ");
+      suelo.setAttribute("points", puntosSuelo);
+      suelo.setAttribute("fill", "#eeeeee"); // Gris claro suelo
+      suelo.setAttribute("stroke", "#cccccc"); // Borde gris
+      suelo.setAttribute("stroke-width", "1"); // Borde fino
+      suelo.setAttribute("class", "suelo superficie-asignable"); // Añadir clase genérica?
+      suelo.setAttribute("data-room-id", roomId); // Repetir roomId aquí es útil
+      suelo.setAttribute("data-surface-id", "floor"); // ID estándar para suelo
+      // Añadir área neta del suelo como data attribute
+      suelo.setAttribute("data-area-neta", estanciaData.areaOBJ_m2?.toFixed(3) || 'N/A');
+      suelo.style.cursor = "pointer";
+      suelo.addEventListener("click", (event) => {
           event.stopPropagation();
           if (window.productoEnAsignacion) {
-            realizarAsignacion("wall", wallId, event.target);
+               // Pasamos expediente, roomId, código producto, 'floor' y el target
+               realizarAsignacion(expedienteSeleccionado, roomId, window.productoEnAsignacion.codigo, 'floor', event.target);
           } else {
-            console.log(`Click en pared ${wallId} (sin producto para asignar)`);
+              console.log(`Click en suelo de ${roomId} (sin producto para asignar)`);
           }
-        });
-        linea.style.cursor = "pointer"; // Hacerla clickable solo si tiene ID y listener
-      }
-      svg.appendChild(linea);
-    });
+      });
+      svg.appendChild(suelo);
   } else {
-    console.warn(`Paredes para ${roomId} no es un array válido.`);
+      console.warn(`Datos de suelo inválidos para ${roomId}.`);
   }
 
-  contenedor.innerHTML = ""; // Limpiar antes de añadir
+  // --- Dibujar Paredes (Iterando sobre geometriaNorm.paredes) ---
+  if (Array.isArray(geometriaNorm.paredes)) {
+      geometriaNorm.paredes.forEach((paredData, i) => {
+          // Extraer datos de la pared del objeto paredData del JSON
+          const wallId = paredData.wallId_OBJ; // ID original del OBJ
+          const puntos = paredData.puntosNormalizados; // Objeto {x1, y1, x2, y2}
+          const longitud = paredData.longitudOriginal_m; // Longitud real
+          const areaNeta = paredData.areaNetaCara_m2; // Área neta calculada
+
+          // Validar datos esenciales
+          if (!wallId || !puntos || typeof puntos.x1 !== 'number' /* ... etc ... */) {
+               console.warn(`Datos incompletos para pared ${i} (${wallId || 'sin ID'}) en ${roomId}.`);
+               return; // Saltar esta pared
+          }
+
+          const { x1, y1, x2, y2 } = puntos;
+
+          // Omitir líneas de longitud cero (visual)
+          if (Math.hypot(x2 - x1, y2 - y1) < 0.1) {
+              return;
+          }
+
+          const linea = document.createElementNS(svgNS, "line");
+          linea.setAttribute("x1", x1.toFixed(2));
+          linea.setAttribute("y1", y1.toFixed(2));
+          linea.setAttribute("x2", x2.toFixed(2));
+          linea.setAttribute("y2", y2.toFixed(2));
+          linea.setAttribute("stroke", "#777777"); // Gris oscuro para paredes
+          linea.setAttribute("stroke-width", "5"); // Grosor para que sea fácil hacer clic
+          linea.setAttribute("stroke-linecap", "round");
+          linea.setAttribute("class", "pared superficie-asignable"); // Clase genérica
+
+          // --- AÑADIR ATRIBUTOS data-* con información clave ---
+          linea.setAttribute("data-wall-id", wallId); // ID de la pared (ej. wall111)
+          linea.setAttribute("data-wall-length", longitud?.toFixed(3) || '0'); // Longitud original
+          linea.setAttribute("data-wall-net-area", areaNeta?.toFixed(3) || '0'); // Área neta
+          linea.setAttribute("data-room-id", roomId); // ID de la estancia a la que pertenece
+          // --- FIN ATRIBUTOS data-* ---
+
+          linea.style.cursor = "pointer";
+
+          // Añadir listener para asignar producto
+          linea.addEventListener("click", (event) => {
+               event.stopPropagation();
+               if (window.productoEnAsignacion) {
+                   // Pasar wallId como idSuperficie y el target
+                   realizarAsignacion(expedienteSeleccionado, roomId, window.productoEnAsignacion.codigo, wallId, event.target);
+               } else {
+                   console.log(`Click en pared ${wallId} de ${roomId} (sin producto para asignar)`);
+                   // Podríamos mostrar tooltip con info de la pared:
+                   // alert(`Pared: ${wallId}\nLongitud: ${longitud?.toFixed(2)}m\nÁrea Neta: ${areaNeta?.toFixed(2)}m²`);
+               }
+          });
+
+          svg.appendChild(linea);
+      });
+  } else {
+      console.warn(`Datos de paredes inválidos para ${roomId}.`);
+  }
+
+  // Limpiar contenedor e insertar nuevo SVG
+  contenedor.innerHTML = "";
   contenedor.appendChild(svg);
-  console.log(`✅ Plano SVG para ${roomId} generado en ${divId}.`);
+  console.log(`✅ Plano SVG para ${roomId} generado en ${divId} usando datos consolidados.`);
 }
 
 function asignarASuperficie(codigo, color, event) {
