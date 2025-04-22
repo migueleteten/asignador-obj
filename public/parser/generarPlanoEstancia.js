@@ -276,7 +276,7 @@ async function realizarAsignacion(
         let elementoVisualAsignacion;
         if (tipoSuperficie === "wall") {
           const lineaOriginal = svgElement.querySelector(
-            `line.pared[data-wall="${idSuperficie}"]`
+            `line.pared[data-wall-id="${idSuperficie}"]`
           );
           if (lineaOriginal) {
             elementoVisualAsignacion = dibujarIndicadorPared(
