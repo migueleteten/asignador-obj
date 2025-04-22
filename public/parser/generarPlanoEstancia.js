@@ -68,7 +68,7 @@ function generarPlanoEstancia(roomId, divId) {
           event.stopPropagation();
           if (window.productoEnAsignacion) {
                // Pasamos expediente, roomId, código producto, 'floor' y el target
-               realizarAsignacion(expedienteSeleccionado, roomId, window.productoEnAsignacion.codigo, 'floor', event.target);
+               realizarAsignacion('floor', 'floor', event.target);
           } else {
               console.log(`Click en suelo de ${roomId} (sin producto para asignar)`);
           }
@@ -124,7 +124,7 @@ function generarPlanoEstancia(roomId, divId) {
                event.stopPropagation();
                if (window.productoEnAsignacion) {
                    // Pasar wallId como idSuperficie y el target
-                   realizarAsignacion(expedienteSeleccionado, roomId, window.productoEnAsignacion.codigo, wallId, event.target);
+                   realizarAsignacion('wall', wallId, event.target);
                } else {
                    console.log(`Click en pared ${wallId} de ${roomId} (sin producto para asignar)`);
                    // Podríamos mostrar tooltip con info de la pared:
