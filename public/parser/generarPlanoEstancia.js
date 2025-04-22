@@ -57,7 +57,7 @@ function generarPlanoEstancia(roomId, divId) {
       suelo.setAttribute("points", puntosSuelo);
       suelo.setAttribute("fill", "#eeeeee"); // Gris claro suelo
       suelo.setAttribute("stroke", "#cccccc"); // Borde gris
-      suelo.setAttribute("stroke-width", "1"); // Borde fino
+      suelo.setAttribute("stroke-width", "15"); // Borde fino
       suelo.setAttribute("class", "suelo superficie-asignable"); // Añadir clase genérica?
       suelo.setAttribute("data-room-id", roomId); // Repetir roomId aquí es útil
       suelo.setAttribute("data-surface-id", "floor"); // ID estándar para suelo
@@ -106,7 +106,7 @@ function generarPlanoEstancia(roomId, divId) {
           linea.setAttribute("x2", x2.toFixed(2));
           linea.setAttribute("y2", y2.toFixed(2));
           linea.setAttribute("stroke", "#777777"); // Gris oscuro para paredes
-          linea.setAttribute("stroke-width", "5"); // Grosor para que sea fácil hacer clic
+          linea.setAttribute("stroke-width", "15"); // Grosor para que sea fácil hacer clic
           linea.setAttribute("stroke-linecap", "round");
           linea.setAttribute("class", "pared superficie-asignable"); // Clase genérica
 
