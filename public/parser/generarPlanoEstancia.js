@@ -7,18 +7,23 @@
  * @param {string} divId - El ID del div contenedor donde se insertará el SVG.
  */
 function generarPlanoEstancia(roomId, divId) {
-  console.log(`🧩 Generando plano para roomId: ${roomId}, div destino: ${divId}`);
+  console.log(
+    `🧩 Generando plano para roomId: ${roomId}, div destino: ${divId}`
+  );
 
   const contenedor = document.getElementById(divId);
   if (!contenedor) {
-      console.error(`❌ No se encontró el contenedor con id: ${divId}`);
-      // Escribir error en el contenedor si existe la variable, si no, log extra
-      if(typeof contenedor !== 'undefined' && contenedor !== null) {
-           contenedor.innerHTML = "<p style='color:red;'>Error: Contenedor no encontrado.</p>";
-      } else {
-           console.error("La variable 'contenedor' es nula o no definida incluso antes de getElementById.");
-      }
-      return;
+    console.error(`❌ No se encontró el contenedor con id: ${divId}`);
+    // Escribir error en el contenedor si existe la variable, si no, log extra
+    if (typeof contenedor !== "undefined" && contenedor !== null) {
+      contenedor.innerHTML =
+        "<p style='color:red;'>Error: Contenedor no encontrado.</p>";
+    } else {
+      console.error(
+        "La variable 'contenedor' es nula o no definida incluso antes de getElementById."
+      );
+    }
+    return;
   }
 
   // --- LEER DATOS DEL JSON CONSOLIDADO CACHEADO ---
@@ -27,10 +32,17 @@ function generarPlanoEstancia(roomId, divId) {
   // --- FIN LECTURA ---
 
   // Validar que tenemos los datos necesarios, incluyendo la geometría normalizada
-  if (!estanciaData || !estanciaData.geometriaPlanoNormalizada || !estanciaData.geometriaPlanoNormalizada.suelo || !estanciaData.geometriaPlanoNormalizada.paredes) {
-      console.warn(`⚠️ No hay geometría completa y normalizada para ${roomId} en window.datosExpediente.`);
-      contenedor.innerHTML = `<p style='color: #999; padding: 10px;'>No hay datos de plano procesados o válidos para ${roomId}. Ejecute el procesamiento primero.</p>`;
-      return;
+  if (
+    !estanciaData ||
+    !estanciaData.geometriaPlanoNormalizada ||
+    !estanciaData.geometriaPlanoNormalizada.suelo ||
+    !estanciaData.geometriaPlanoNormalizada.paredes
+  ) {
+    console.warn(
+      `⚠️ No hay geometría completa y normalizada para ${roomId} en window.datosExpediente.`
+    );
+    contenedor.innerHTML = `<p style='color: #999; padding: 10px;'>No hay datos de plano procesados o válidos para ${roomId}. Ejecute el procesamiento primero.</p>`;
+    return;
   }
 
   // Acceder a la geometría normalizada para facilitar el acceso
@@ -50,98 +62,113 @@ function generarPlanoEstancia(roomId, divId) {
   // --- Dibujar Suelo (Usando geometriaNorm.suelo) ---
   // La lógica es la misma, solo cambiamos la fuente de datos
   if (Array.isArray(geometriaNorm.suelo) && geometriaNorm.suelo.length >= 3) {
-      const suelo = document.createElementNS(svgNS, "polygon");
-      const puntosSuelo = geometriaNorm.suelo
-          .map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`) // Usar p.x, p.y
-          .join(" ");
-      suelo.setAttribute("points", puntosSuelo);
-      suelo.setAttribute("fill", "#eeeeee"); // Gris claro suelo
-      suelo.setAttribute("stroke", "#cccccc"); // Borde gris
-      suelo.setAttribute("stroke-width", "15"); // Borde fino
-      suelo.setAttribute("class", "suelo superficie-asignable"); // Añadir clase genérica?
-      suelo.setAttribute("data-room-id", roomId); // Repetir roomId aquí es útil
-      suelo.setAttribute("data-surface-id", "floor"); // ID estándar para suelo
-      // Añadir área neta del suelo como data attribute
-      suelo.setAttribute("data-area-neta", estanciaData.areaOBJ_m2?.toFixed(3) || 'N/A');
-      suelo.style.cursor = "pointer";
-      suelo.addEventListener("click", (event) => {
-          event.stopPropagation();
-          if (window.productoEnAsignacion) {
-               // Pasamos expediente, roomId, código producto, 'floor' y el target
-               realizarAsignacion('floor', 'floor', event.target);
-          } else {
-              console.log(`Click en suelo de ${roomId} (sin producto para asignar)`);
-          }
-      });
-      svg.appendChild(suelo);
+    const suelo = document.createElementNS(svgNS, "polygon");
+    const puntosSuelo = geometriaNorm.suelo
+      .map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`) // Usar p.x, p.y
+      .join(" ");
+    suelo.setAttribute("points", puntosSuelo);
+    suelo.setAttribute("fill", "#eeeeee"); // Gris claro suelo
+    suelo.setAttribute("stroke", "#cccccc"); // Borde gris
+    suelo.setAttribute("stroke-width", "15"); // Borde fino
+    suelo.setAttribute("class", "suelo superficie-asignable"); // Añadir clase genérica?
+    suelo.setAttribute("data-room-id", roomId); // Repetir roomId aquí es útil
+    suelo.setAttribute("data-surface-id", "floor"); // ID estándar para suelo
+    // Añadir área neta del suelo como data attribute
+    suelo.setAttribute(
+      "data-area-neta",
+      estanciaData.areaOBJ_m2?.toFixed(3) || "N/A"
+    );
+    suelo.style.cursor = "pointer";
+    suelo.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (window.productoEnAsignacion) {
+        // Pasamos expediente, roomId, código producto, 'floor' y el target
+        realizarAsignacion("floor", "floor", event.target);
+      } else {
+        console.log(`Click en suelo de ${roomId} (sin producto para asignar)`);
+      }
+    });
+    svg.appendChild(suelo);
   } else {
-      console.warn(`Datos de suelo inválidos para ${roomId}.`);
+    console.warn(`Datos de suelo inválidos para ${roomId}.`);
   }
 
   // --- Dibujar Paredes (Iterando sobre geometriaNorm.paredes) ---
   if (Array.isArray(geometriaNorm.paredes)) {
-      geometriaNorm.paredes.forEach((paredData, i) => {
-          // Extraer datos de la pared del objeto paredData del JSON
-          const wallId = paredData.wallId_OBJ; // ID original del OBJ
-          const puntos = paredData.puntosNormalizados; // Objeto {x1, y1, x2, y2}
-          const longitud = paredData.longitudOriginal_m; // Longitud real
-          const areaNeta = paredData.areaNetaCara_m2; // Área neta calculada
+    geometriaNorm.paredes.forEach((paredData, i) => {
+      // Extraer datos de la pared del objeto paredData del JSON
+      const wallId = paredData.wallId_OBJ; // ID original del OBJ
+      const puntos = paredData.puntosNormalizados; // Objeto {x1, y1, x2, y2}
+      const longitud = paredData.longitudOriginal_m; // Longitud real
+      const areaNeta = paredData.areaNetaCara_m2; // Área neta calculada
 
-          // Validar datos esenciales
-          if (!wallId || !puntos || typeof puntos.x1 !== 'number' /* ... etc ... */) {
-               console.warn(`Datos incompletos para pared ${i} (${wallId || 'sin ID'}) en ${roomId}.`);
-               return; // Saltar esta pared
-          }
+      // Validar datos esenciales
+      if (
+        !wallId ||
+        !puntos ||
+        typeof puntos.x1 !== "number" /* ... etc ... */
+      ) {
+        console.warn(
+          `Datos incompletos para pared ${i} (${
+            wallId || "sin ID"
+          }) en ${roomId}.`
+        );
+        return; // Saltar esta pared
+      }
 
-          const { x1, y1, x2, y2 } = puntos;
+      const { x1, y1, x2, y2 } = puntos;
 
-          // Omitir líneas de longitud cero (visual)
-          if (Math.hypot(x2 - x1, y2 - y1) < 0.1) {
-              return;
-          }
+      // Omitir líneas de longitud cero (visual)
+      if (Math.hypot(x2 - x1, y2 - y1) < 0.1) {
+        return;
+      }
 
-          const linea = document.createElementNS(svgNS, "line");
-          linea.setAttribute("x1", x1.toFixed(2));
-          linea.setAttribute("y1", y1.toFixed(2));
-          linea.setAttribute("x2", x2.toFixed(2));
-          linea.setAttribute("y2", y2.toFixed(2));
-          linea.setAttribute("stroke", "#777777"); // Gris oscuro para paredes
-          linea.setAttribute("stroke-width", "15"); // Grosor para que sea fácil hacer clic
-          linea.setAttribute("stroke-linecap", "round");
-          linea.setAttribute("class", "pared superficie-asignable"); // Clase genérica
+      const linea = document.createElementNS(svgNS, "line");
+      linea.setAttribute("x1", x1.toFixed(2));
+      linea.setAttribute("y1", y1.toFixed(2));
+      linea.setAttribute("x2", x2.toFixed(2));
+      linea.setAttribute("y2", y2.toFixed(2));
+      linea.setAttribute("stroke", "#777777"); // Gris oscuro para paredes
+      linea.setAttribute("stroke-width", "15"); // Grosor para que sea fácil hacer clic
+      linea.setAttribute("stroke-linecap", "round");
+      linea.setAttribute("class", "pared superficie-asignable"); // Clase genérica
 
-          // --- AÑADIR ATRIBUTOS data-* con información clave ---
-          linea.setAttribute("data-wall-id", wallId); // ID de la pared (ej. wall111)
-          linea.setAttribute("data-wall-length", longitud?.toFixed(3) || '0'); // Longitud original
-          linea.setAttribute("data-wall-net-area", areaNeta?.toFixed(3) || '0'); // Área neta
-          linea.setAttribute("data-room-id", roomId); // ID de la estancia a la que pertenece
-          // --- FIN ATRIBUTOS data-* ---
+      // --- AÑADIR ATRIBUTOS data-* con información clave ---
+      linea.setAttribute("data-wall-id", wallId); // ID de la pared (ej. wall111)
+      linea.setAttribute("data-wall-length", longitud?.toFixed(3) || "0"); // Longitud original
+      linea.setAttribute("data-wall-net-area", areaNeta?.toFixed(3) || "0"); // Área neta
+      linea.setAttribute("data-room-id", roomId); // ID de la estancia a la que pertenece
+      // --- FIN ATRIBUTOS data-* ---
 
-          linea.style.cursor = "pointer";
+      linea.style.cursor = "pointer";
 
-          // Añadir listener para asignar producto
-          linea.addEventListener("click", (event) => {
-               event.stopPropagation();
-               if (window.productoEnAsignacion) {
-                   // Pasar wallId como idSuperficie y el target
-                   realizarAsignacion('wall', wallId, event.target);
-               } else {
-                   console.log(`Click en pared ${wallId} de ${roomId} (sin producto para asignar)`);
-                   // Podríamos mostrar tooltip con info de la pared:
-                   // alert(`Pared: ${wallId}\nLongitud: ${longitud?.toFixed(2)}m\nÁrea Neta: ${areaNeta?.toFixed(2)}m²`);
-               }
-          });
-
-          svg.appendChild(linea);
+      // Añadir listener para asignar producto
+      linea.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (window.productoEnAsignacion) {
+          // Pasar wallId como idSuperficie y el target
+          realizarAsignacion("wall", wallId, event.target);
+        } else {
+          console.log(
+            `Click en pared ${wallId} de ${roomId} (sin producto para asignar)`
+          );
+          // Podríamos mostrar tooltip con info de la pared:
+          // alert(`Pared: ${wallId}\nLongitud: ${longitud?.toFixed(2)}m\nÁrea Neta: ${areaNeta?.toFixed(2)}m²`);
+        }
       });
+
+      svg.appendChild(linea);
+    });
   } else {
-      console.warn(`Datos de paredes inválidos para ${roomId}.`);
+    console.warn(`Datos de paredes inválidos para ${roomId}.`);
   }
 
   // Limpiar contenedor e insertar nuevo SVG
   contenedor.innerHTML = "";
   contenedor.appendChild(svg);
-  console.log(`✅ Plano SVG para ${roomId} generado en ${divId} usando datos consolidados.`);
+  console.log(
+    `✅ Plano SVG para ${roomId} generado en ${divId} usando datos consolidados.`
+  );
 }
 
 function asignarASuperficie(codigo, color, event) {
@@ -314,39 +341,55 @@ async function realizarAsignacion(
             codigoProducto
           ); // NECESITAMOS ESTA FUNCIÓN
           if (contenedorFormularios) {
+            // --- USAR DATOS INICIALES + RESULTADO BACKEND ---
+            // Crear un objeto de datos para el formulario que incluya la cantidad calculada
+            // devuelta por el backend. También podríamos necesitar el ID_Detalle si lo devuelve.
+            const datosParaForm = {
+              ...detalleDataInicial, // Incluye expediente, estancia, codigo, superficie, cotas defaults, longitud, huecos[]
+              idDetalle:
+                respuestaBackend.idDetalle || detalleDataInicial.idDetalle, // Usar ID real si backend lo devuelve
+              cantidadCalculadaM2: respuestaBackend.cantidadCalculada, // Usar cantidad calculada por backend
+              // Asegúrate que el backend devuelve 'idDetalle' y 'cantidadCalculada'
+            };
+            // Crear el formulario CON estos datos
             const miniFormElement = crearMiniFormularioSuperficie(
-              detalleDataInicial,
+              datosParaForm, // <-- Pasar datos con cantidad calculada
               contenedorFormularios,
               roomId,
               codigoProducto
             );
+            // --- FIN USO DATOS BACKEND ---
             if (miniFormElement) {
-                console.log(`Mini-form ${miniFormElement.id} creado.`);
-                // Enlazar el ID del indicador visual al dataset del formulario
-                miniFormElement.dataset.visualElementId = elementoVisualAsignacion.id;
-                console.log(` - Enlazado a visualElementId: ${elementoVisualAsignacion.id}`);
+              console.log(`Mini-form ${miniFormElement.id} creado.`);
+              // Enlazar el ID del indicador visual al dataset del formulario
+              miniFormElement.dataset.visualElementId =
+                elementoVisualAsignacion.id;
+              console.log(
+                ` - Enlazado a visualElementId: ${elementoVisualAsignacion.id}`
+              );
 
-                // Adjuntar Listeners (Paso futuro)
-                attachListenersToMiniForm(miniFormElement.id);
+              // Adjuntar Listeners (Paso futuro)
+              attachListenersToMiniForm(miniFormElement.id);
 
-                // Actualiza el display de cantidad total del producto AHORA
-                updateTotalQuantityDisplay(codigoProducto);                
+              // Actualiza el display de cantidad total del producto AHORA
+              updateTotalQuantityDisplay(codigoProducto);
 
-                // Añadir listener al elemento visual para que pueda borrar usando el ID del form
-                // (Asegurarse que handleDeleteSurfaceAssignment usa el formId)
-                elementoVisualAsignacion.addEventListener("click", (event) => {
-                    event.stopPropagation();
-                     console.log(`Clic en indicador visual ${elementoVisualAsignacion.id}, llamando a borrar form ${miniFormElement.id}`);
-                     handleDeleteSurfaceAssignment(miniFormElement.id); // Llamar con el ID del FORM
-                });
-                 elementoVisualAsignacion.style.cursor = "pointer";
-
+              // Añadir listener al elemento visual para que pueda borrar usando el ID del form
+              // (Asegurarse que handleDeleteSurfaceAssignment usa el formId)
+              elementoVisualAsignacion.addEventListener("click", (event) => {
+                event.stopPropagation();
+                console.log(
+                  `Clic en indicador visual ${elementoVisualAsignacion.id}, llamando a borrar form ${miniFormElement.id}`
+                );
+                handleDeleteSurfaceAssignment(miniFormElement.id); // Llamar con el ID del FORM
+              });
+              elementoVisualAsignacion.style.cursor = "pointer";
             } else {
-                console.error("Falló la creación del elemento mini-form.");
-                 // Si falla la creación del form, ¿deberíamos borrar el indicador visual que acabamos de crear?
-                 // elementoVisualAsignacion.remove(); // Opcional: limpiar indicador si form falla
+              console.error("Falló la creación del elemento mini-form.");
+              // Si falla la creación del form, ¿deberíamos borrar el indicador visual que acabamos de crear?
+              // elementoVisualAsignacion.remove(); // Opcional: limpiar indicador si form falla
             }
-             // --- FIN MOVIDO AQUÍ ---
+            // --- FIN MOVIDO AQUÍ ---
           } else {
             console.error(
               `No se encontró el contenedor para mini-forms de ${codigoProducto} en ${roomId}`
@@ -1273,89 +1316,131 @@ function restaurarBotonAsignar(codigo) {
  * @param {string} divIdPlano - El ID del div que contiene el SVG del plano.
  */
 function restaurarAsignacionesVisuales(asignacionEnriquecida, divIdPlano) {
-    const { codigoProducto, estancia: roomId, detallesSuperficie, tipo } = asignacionEnriquecida;
-    const esTipoEspecial = ["Revestimiento cerámico", "Pavimento laminado", "Pavimento vinílico"].includes(tipo);
+  const {
+    codigoProducto,
+    estancia: roomId,
+    detallesSuperficie,
+    tipo,
+  } = asignacionEnriquecida;
+  const esTipoEspecial = [
+    "Revestimiento cerámico",
+    "Pavimento laminado",
+    "Pavimento vinílico",
+  ].includes(tipo);
 
-    // Solo procesar si es tipo especial Y tiene detalles
-    if (!esTipoEspecial || !Array.isArray(detallesSuperficie) || detallesSuperficie.length === 0) {
-        return;
+  // Solo procesar si es tipo especial Y tiene detalles
+  if (
+    !esTipoEspecial ||
+    !Array.isArray(detallesSuperficie) ||
+    detallesSuperficie.length === 0
+  ) {
+    return;
+  }
+
+  console.log(
+    `Restaurando ${detallesSuperficie.length} detalles para ${codigoProducto} en ${roomId} (${divIdPlano})`
+  );
+
+  const svgElement = document.querySelector(
+    `#${divIdPlano} > svg[data-room-id="${roomId}"]`
+  );
+  if (!svgElement) {
+    console.error(
+      `restaurar: No se encontró SVG para ${roomId} en ${divIdPlano}`
+    );
+    return;
+  }
+
+  // Encontrar el contenedor para los mini-forms de este producto
+  const contenedorFormularios = findMiniFormContainer(roomId, codigoProducto);
+  if (!contenedorFormularios) {
+    // Este error es normal si procesarAsignaciones aún no ha creado el contenedor
+    // console.warn(`restaurar: No se encontró contenedor de mini-forms para ${codigoProducto} en ${divIdPlano}. ¿Se creó en procesarAsignaciones?`);
+    return; // No podemos continuar sin el contenedor
+  }
+
+  // Obtener el color asociado
+  let color = "#808080";
+  const botonAsignar = document.querySelector(
+    `button[data-codigo="${codigoProducto}"]`
+  );
+  const cromo = botonAsignar?.closest(".cromo-producto");
+  const colorBadge = cromo?.querySelector(".color-badge");
+  if (colorBadge) color = colorBadge.style.backgroundColor || color;
+
+  // Limpiar contenedores existentes por si acaso (evita duplicados en recargas parciales)
+  // contenedorFormularios.innerHTML = ''; // Opcional: Borrar antes de recrear
+
+  // Iterar sobre los detalles guardados y recrear UI + Indicadores
+  let needTotalUpdate = false; // Flag para actualizar total solo si hay detalles
+  detallesSuperficie.forEach((detalle) => {
+    const { idSuperficie } = detalle;
+    if (!idSuperficie) return; // Saltar si falta ID de superficie
+
+    // 1. Dibujar Indicador Visual (con offset)
+    let elementoVisual;
+    if (idSuperficie === "floor") {
+      const poligonoOriginal = svgElement.querySelector("polygon.suelo");
+      if (poligonoOriginal)
+        elementoVisual = dibujarIndicadorSuelo(
+          poligonoOriginal,
+          codigoProducto,
+          color
+        );
+    } else {
+      const lineaOriginal = svgElement.querySelector(
+        `line.pared[data-wall-id="${idSuperficie}"]`
+      );
+      if (lineaOriginal)
+        elementoVisual = dibujarIndicadorPared(
+          lineaOriginal,
+          codigoProducto,
+          idSuperficie,
+          color
+        );
     }
 
-    console.log(`Restaurando ${detallesSuperficie.length} detalles para ${codigoProducto} en ${roomId} (${divIdPlano})`);
-
-    const svgElement = document.querySelector(`#${divIdPlano} > svg[data-room-id="${roomId}"]`);
-    if (!svgElement) {
-        console.error(`restaurar: No se encontró SVG para ${roomId} en ${divIdPlano}`);
-        return;
+    if (!elementoVisual) {
+      console.warn(
+        `restaurar: No se pudo dibujar indicador para ${idSuperficie}`
+      );
+      return; // Saltar este detalle
     }
 
-    // Encontrar el contenedor para los mini-forms de este producto
-    const contenedorFormularios = findMiniFormContainer(roomId, codigoProducto);
-    if (!contenedorFormularios) {
-        // Este error es normal si procesarAsignaciones aún no ha creado el contenedor
-        // console.warn(`restaurar: No se encontró contenedor de mini-forms para ${codigoProducto} en ${divIdPlano}. ¿Se creó en procesarAsignaciones?`);
-        return; // No podemos continuar sin el contenedor
+    // 2. Crear Mini-Formulario (pasando los datos guardados)
+    const miniFormElement = crearMiniFormularioSuperficie(
+      detalle,
+      contenedorFormularios,
+      roomId,
+      codigoProducto
+    );
+
+    // 3. Enlazar, adjuntar listeners si ambos se crearon
+    if (miniFormElement) {
+      // Enlazar el ID del indicador visual al dataset del formulario
+      miniFormElement.dataset.visualElementId = elementoVisual.id;
+
+      // Añadir listener al indicador restaurado para borrar
+      elementoVisual.addEventListener("click", (event) => {
+        event.stopPropagation();
+        handleDeleteSurfaceAssignment(miniFormElement.id); // Llamar con ID del FORM
+      });
+      elementoVisual.style.cursor = "pointer";
+
+      // Adjuntar Listeners al Mini-Form restaurado (¡IMPORTANTE!)
+      attachListenersToMiniForm(miniFormElement.id);
+      needTotalUpdate = true; // Marcar que necesitamos actualizar total
+    } else {
+      // Si falla el form, quitar el indicador que acabamos de dibujar
+      console.error(
+        `restaurar: Falló creación de mini-form para ${idSuperficie}, quitando indicador.`
+      );
+      elementoVisual.remove();
     }
+  }); // Fin forEach detalle
 
-    // Obtener el color asociado
-    let color = '#808080';
-    const botonAsignar = document.querySelector(`button[data-codigo="${codigoProducto}"]`);
-    const cromo = botonAsignar?.closest('.cromo-producto');
-    const colorBadge = cromo?.querySelector('.color-badge');
-    if (colorBadge) color = colorBadge.style.backgroundColor || color;
-
-    // Limpiar contenedores existentes por si acaso (evita duplicados en recargas parciales)
-    // contenedorFormularios.innerHTML = ''; // Opcional: Borrar antes de recrear
-
-    // Iterar sobre los detalles guardados y recrear UI + Indicadores
-    let needTotalUpdate = false; // Flag para actualizar total solo si hay detalles
-    detallesSuperficie.forEach(detalle => {
-        const { idSuperficie } = detalle;
-        if (!idSuperficie) return; // Saltar si falta ID de superficie
-
-         // 1. Dibujar Indicador Visual (con offset)
-         let elementoVisual;
-         if (idSuperficie === 'floor') {
-              const poligonoOriginal = svgElement.querySelector('polygon.suelo');
-              if(poligonoOriginal) elementoVisual = dibujarIndicadorSuelo(poligonoOriginal, codigoProducto, color);
-         } else {
-              const lineaOriginal = svgElement.querySelector(`line.pared[data-wall="${idSuperficie}"]`);
-               if(lineaOriginal) elementoVisual = dibujarIndicadorPared(lineaOriginal, codigoProducto, idSuperficie, color);
-         }
-
-          if (!elementoVisual) {
-              console.warn(`restaurar: No se pudo dibujar indicador para ${idSuperficie}`);
-              return; // Saltar este detalle
-          }
-
-        // 2. Crear Mini-Formulario (pasando los datos guardados)
-         const miniFormElement = crearMiniFormularioSuperficie(detalle, contenedorFormularios, roomId, codigoProducto);
-
-        // 3. Enlazar, adjuntar listeners si ambos se crearon
-        if (miniFormElement) {
-              // Enlazar el ID del indicador visual al dataset del formulario
-              miniFormElement.dataset.visualElementId = elementoVisual.id;
-
-               // Añadir listener al indicador restaurado para borrar
-               elementoVisual.addEventListener('click', (event) => {
-                   event.stopPropagation();
-                   handleDeleteSurfaceAssignment(miniFormElement.id); // Llamar con ID del FORM
-               });
-               elementoVisual.style.cursor = 'pointer';
-
-              // Adjuntar Listeners al Mini-Form restaurado (¡IMPORTANTE!)
-              attachListenersToMiniForm(miniFormElement.id);
-              needTotalUpdate = true; // Marcar que necesitamos actualizar total
-        } else {
-             // Si falla el form, quitar el indicador que acabamos de dibujar
-             console.error(`restaurar: Falló creación de mini-form para ${idSuperficie}, quitando indicador.`);
-             elementoVisual.remove();
-        }
-    }); // Fin forEach detalle
-
-     // 4. Actualizar la cantidad total del producto DESPUÉS de restaurar todos sus detalles
-     if(needTotalUpdate) {
-          updateTotalQuantityDisplay(codigoProducto);
-     }
-
+  // 4. Actualizar la cantidad total del producto DESPUÉS de restaurar todos sus detalles
+  if (needTotalUpdate) {
+    updateTotalQuantityDisplay(codigoProducto);
+  }
 } // Fin restaurarAsignacionesVisuales
