@@ -1189,8 +1189,8 @@ function getRoomHeight(roomId) {
   const roomData = window.geometriaPorRoom
     ? window.geometriaPorRoom[roomId]
     : null;
-  if (roomData && roomData.alturaTecho !== undefined) {
-    return roomData.alturaTecho;
+  if (roomData && roomData.alturaTecho_m !== undefined) {
+    return roomData.alturaTecho_m;
   }
   console.warn(
     `getRoomHeight: No se encontró altura para room ${roomId}. Usando fallback 2.5`
