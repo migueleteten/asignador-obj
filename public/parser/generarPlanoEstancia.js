@@ -1186,8 +1186,8 @@ function crearMiniFormularioSuperficie(
 
 function getRoomHeight(roomId) {
   // TODO: Implementar lógica para obtener la altura de window.geometriaPorRoom
-  const roomData = window.geometriaPorRoom
-    ? window.geometriaPorRoom[roomId]
+  const roomData = window.datosExpediente
+    ? window.datosExpediente[roomId]
     : null;
   if (roomData && roomData.alturaTecho_m !== undefined) {
     return roomData.alturaTecho_m;
@@ -1201,8 +1201,8 @@ function getRoomHeight(roomId) {
 function getSegmentLength(idSuperficie, roomId) {
   // TODO: Implementar lógica para obtener la longitud de window.geometriaPorRoom
   if (idSuperficie === "floor") return 0; // Suelo no tiene longitud lineal definida así
-  const roomData = window.geometriaPorRoom
-    ? window.geometriaPorRoom[roomId]
+  const roomData = window.datosExpediente
+    ? window.datosExpediente[roomId]
     : null;
   const pared = roomData?.paredes?.find((p) => p.wallId === idSuperficie);
   if (pared && pared.longitudOriginal !== undefined) {
