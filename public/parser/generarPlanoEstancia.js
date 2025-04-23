@@ -1186,9 +1186,7 @@ function crearMiniFormularioSuperficie(
 
 function getRoomHeight(roomId) {
   // TODO: Implementar lógica para obtener la altura de window.geometriaPorRoom
-  const roomData = window.datosExpediente
-    ? window.datosExpediente[roomId]
-    : null;
+  const roomData = window.datosExpediente?.estancias?.[roomId]; // Usar encadenamiento opcional por seguridad
   if (roomData && roomData.alturaTecho_m !== undefined) {
     return roomData.alturaTecho_m;
   }
