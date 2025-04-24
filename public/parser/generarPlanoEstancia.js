@@ -883,6 +883,7 @@ function handleDeleteSurfaceAssignment(formId) {
       divForm.style.opacity = "1"; // Restaurar opacidad si falla
     })
     .eliminarDetalleSuperficie(detallePK); // Llamar a la función backend correcta
+    recalcularDiferencia();
 }
 
 // --- NECESITARÁS LA FUNCIÓN attachListenersToMiniForm (Aún por implementar) ---
