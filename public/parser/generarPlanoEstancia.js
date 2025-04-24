@@ -569,7 +569,7 @@ function addHueco(addButton, formId) {
   newRow.innerHTML = `
       <label>H${newIndex + 1}:</label>
       Largo: <input type="number" class="hueco-input" data-prop="largo" step="0.01" min="0" value="" placeholder="Largo (m)">
-      &times; Ancho: <input type="number" class="hueco-input" data-prop="ancho" step="0.01" min="0" value="" placeholder="Ancho (m)"> {/* Cambiado Alto por Ancho */}
+      &times; Ancho: <input type="number" class="hueco-input" data-prop="ancho" step="0.01" min="0" value="" placeholder="Ancho (m)">
       <button type="button" class="remove-hueco-btn" title="Eliminar Hueco" onclick="removeHueco('${huecoRowId}', '${formId}')">&times;</button>
   `;
 
