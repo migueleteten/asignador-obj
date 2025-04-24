@@ -1200,7 +1200,7 @@ function getSegmentLength(idSuperficie, roomId) {
   // TODO: Implementar lógica para obtener la longitud de window.geometriaPorRoom
   if (idSuperficie === "floor") return 0; // Suelo no tiene longitud lineal definida así
   const roomData = window.datosExpediente?.estancias?.[roomId];
-  const pared = roomData?.paredes?.find((p) => p.wallId === idSuperficie);
+  const pared = roomData?.paredes?.find((p) => p.wallId_OBJ === idSuperficie);
   if (pared && pared.longitudOriginal_m !== undefined) {
     return pared.longitudOriginal_m;
   }
