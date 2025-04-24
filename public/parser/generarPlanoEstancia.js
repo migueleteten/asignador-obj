@@ -1148,10 +1148,10 @@ function crearMiniFormularioSuperficie(
   )}`;
 
   // Datos estáticos específicos
-  const alturaTecho = datosEstaticos.alturaTecho_m || 0;
+  const alturaTecho = datosEstaticos.alturaTecho || 0;
   const areaNeta = esSuelo
-    ? datosEstaticos.areaNetaSuelo_m2 || 0
-    : datosEstaticos.areaNetaCara_m2 || 0;
+    ? datosEstaticos.areaNeta || 0
+    : datosEstaticos.areaNeta || 0;
   const longitud = esSuelo ? 0 : datosEstaticos.longitudOriginal_m || 0;
 
   // --- !! NUEVO LOG PARA VERIFICAR EXTRACCIÓN !! ---
