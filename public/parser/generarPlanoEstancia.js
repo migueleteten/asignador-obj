@@ -534,58 +534,64 @@ function findMiniFormContainer(roomId, codigoProducto) {
  */
 // --- DENTRO de generarPlanoEstancia.js ---
 
+/**
+ * Añade una nueva fila de inputs para un hueco manual (Largo x Ancho)
+ * en el mini-form de un SUELO.
+ * @param {HTMLElement} addButton - El botón "+" que fue clickeado (se recibe pero no se usa actualmente).
+ * @param {string} formId - El ID del mini-form padre (`#miniform-roomId-codigoProd-floor...`).
+ */
 function addHueco(addButton, formId) {
-  // Asegúrate que la llamada en HTML es addHueco(this, 'formId')
   const divForm = document.getElementById(formId);
-  if (!divForm) {
-    console.error("addHueco: No se encontró el divForm con ID:", formId);
-    return;
+  // Doble verificación: ¿existe el form y es realmente un form de suelo?
+  if (!divForm || divForm.dataset.idSuperficie !== 'floor') {
+      console.error(`addHueco: El form ${formId} no existe o no es de tipo 'floor'.`);
+      return;
   }
 
-  const huecosContainer = divForm.querySelector(".huecos-container");
+  const huecosContainer = divForm.querySelector('.huecos-container');
   if (!huecosContainer) {
-    console.error(
-      "addHueco: No se encontró .huecos-container dentro de:",
-      formId
-    );
-    return;
+      console.error(`addHueco: No se encontró .huecos-container dentro de: ${formId}`);
+      return;
   }
 
-  const existingHuecos = huecosContainer.querySelectorAll(".hueco-row");
+  // Determinar el índice del nuevo hueco
+  const existingHuecos = huecosContainer.querySelectorAll('.hueco-row');
   const newIndex = existingHuecos.length;
+  const huecoRowId = `${formId}-hueco-${newIndex}`; // ID único para la nueva fila
 
-  // CORREGIDO: Generar el ID como un string limpio
-  const huecoRowId = `${formId}-hueco-${newIndex}`;
+  // Crear el elemento div para la nueva fila
+  const newRow = document.createElement('div');
+  newRow.className = 'hueco-row'; // Clase para estilos
+  newRow.id = huecoRowId;       // Asignar ID
+  newRow.dataset.huecoIndex = newIndex; // Guardar índice (puede ser útil)
 
-  // Crear la nueva fila
-  const newRow = document.createElement("div");
-  newRow.className = "hueco-row";
-  newRow.id = huecoRowId; // Asignar ID limpio
-  newRow.dataset.huecoIndex = newIndex;
-
-  // CORREGIDO: innerHTML usando backticks y variables correctamente interpoladas
+  // Generar el HTML interno con "Largo" y "Ancho"
   newRow.innerHTML = `
-        <label>H${newIndex + 1} (m):</label>
-        L: <input type="number" class="hueco-input" data-prop="largo" step="0.01" min="0" value="" placeholder="Largo">
-        &times; Al: <input type="number" class="hueco-input" data-prop="alto" step="0.01" min="0" value="" placeholder="Alto">
-        <button type="button" class="remove-hueco-btn" title="Eliminar Hueco" onclick="removeHueco('${huecoRowId}', '${formId}')">Eliminar hueco</button>
-    `;
-  // Asegúrate que las comillas simples ' rodean a ${huecoRowId} y ${formId} dentro del onclick
+      <label>H${newIndex + 1}:</label>
+      Largo: <input type="number" class="hueco-input" data-prop="largo" step="0.01" min="0" value="" placeholder="Largo (m)">
+      &times; Ancho: <input type="number" class="hueco-input" data-prop="ancho" step="0.01" min="0" value="" placeholder="Ancho (m)"> {/* Cambiado Alto por Ancho */}
+      <button type="button" class="remove-hueco-btn" title="Eliminar Hueco" onclick="removeHueco('${huecoRowId}', '${formId}')">&times;</button>
+  `;
 
+  // Añadir la nueva fila al contenedor
   huecosContainer.appendChild(newRow);
-  console.log(`Fila de hueco ${huecoRowId} añadida.`);
+  console.log(`Fila de hueco ${huecoRowId} añadida a ${formId}.`);
 
-  // Adjuntar listeners a los NUEVOS inputs
-  const newInputs = newRow.querySelectorAll(".hueco-input");
-  newInputs.forEach((input) => {
-    // Usamos dataset para asociar al form padre
-    input.dataset.formId = formId;
-    input.addEventListener("input", debounce(handleMiniFormInputChange, 800)); // Debounce un poco más largo quizás
-    input.addEventListener("change", handleMiniFormInputChange); // Guardar al perder foco también
+  // Adjuntar los listeners de input/change a los NUEVOS inputs
+  // para que también disparen el recálculo y guardado automático (debounced)
+  const newInputs = newRow.querySelectorAll('.hueco-input');
+  newInputs.forEach(input => {
+      input.dataset.formId = formId; // Asociar al form padre para el handler
+      input.addEventListener('input', handleMiniFormInputChange);
+      input.addEventListener('change', handleMiniFormInputChange);
+      // No marcamos listenerAttached aquí, asumimos que esta fila es nueva
   });
 
-  // Opcional: Mover el foco al primer input del nuevo hueco
+  // Opcional: Poner el foco en el primer input nuevo
   newRow.querySelector('input[data-prop="largo"]')?.focus();
+
+  // Opcional: Recalcular inmediatamente al añadir la fila (aunque los valores sean 0)
+  // recalculateAndUpdateMiniForm(formId, false); // Sin debounce
 }
 
 // --- NECESITARÁS ESTA FUNCIÓN DEBNounce (o una similar) ---
