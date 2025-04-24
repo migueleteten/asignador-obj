@@ -341,55 +341,97 @@ async function realizarAsignacion(
             codigoProducto
           ); // NECESITAMOS ESTA FUNCIÓN
           if (contenedorFormularios) {
-            // --- USAR DATOS INICIALES + RESULTADO BACKEND ---
-            // Crear un objeto de datos para el formulario que incluya la cantidad calculada
-            // devuelta por el backend. También podríamos necesitar el ID_Detalle si lo devuelve.
-            const datosParaForm = {
-              ...detalleDataInicial, // Incluye expediente, estancia, codigo, superficie, cotas defaults, longitud, huecos[]
-              idDetalle:
-                respuestaBackend.idDetalle || detalleDataInicial.idDetalle, // Usar ID real si backend lo devuelve
-              cantidadCalculadaM2: respuestaBackend.cantidadCalculada, // Usar cantidad calculada por backend
-              // Asegúrate que el backend devuelve 'idDetalle' y 'cantidadCalculada'
-            };
-            // Crear el formulario CON estos datos
-            const miniFormElement = crearMiniFormularioSuperficie(
-              datosParaForm, // <-- Pasar datos con cantidad calculada
-              contenedorFormularios,
-              roomId,
-              codigoProducto
-            );
-            // --- FIN USO DATOS BACKEND ---
-            if (miniFormElement) {
-              console.log(`Mini-form ${miniFormElement.id} creado.`);
-              // Enlazar el ID del indicador visual al dataset del formulario
-              miniFormElement.dataset.visualElementId =
-                elementoVisualAsignacion.id;
-              console.log(
-                ` - Enlazado a visualElementId: ${elementoVisualAsignacion.id}`
-              );
+            // --- INICIO: Buscar Datos Estáticos para el Formulario ---
+            const estanciaDataJson =
+              window.datosExpediente?.estancias?.[roomId];
+            let datosEstaticosParaForm = null;
+            const esSuelo = idSuperficie === "floor";
 
-              // Adjuntar Listeners (Paso futuro)
-              attachListenersToMiniForm(miniFormElement.id);
-
-              // Actualiza el display de cantidad total del producto AHORA
-              updateTotalQuantityDisplay(codigoProducto);
-
-              // Añadir listener al elemento visual para que pueda borrar usando el ID del form
-              // (Asegurarse que handleDeleteSurfaceAssignment usa el formId)
-              elementoVisualAsignacion.addEventListener("click", (event) => {
-                event.stopPropagation();
-                console.log(
-                  `Clic en indicador visual ${elementoVisualAsignacion.id}, llamando a borrar form ${miniFormElement.id}`
-                );
-                handleDeleteSurfaceAssignment(miniFormElement.id); // Llamar con el ID del FORM
-              });
-              elementoVisualAsignacion.style.cursor = "pointer";
-            } else {
-              console.error("Falló la creación del elemento mini-form.");
-              // Si falla la creación del form, ¿deberíamos borrar el indicador visual que acabamos de crear?
-              // elementoVisualAsignacion.remove(); // Opcional: limpiar indicador si form falla
+            if (estanciaDataJson) {
+              if (esSuelo) {
+                datosEstaticosParaForm = {
+                  areaNeta: estanciaDataJson.areaOBJ_m2 || 0, // Área del suelo
+                  alturaTecho: estanciaDataJson.alturaTecho_m || 0,
+                  longitudOriginal_m: 0, // Longitud no aplica al suelo
+                };
+              } else {
+                // Es pared
+                const paredDataJson =
+                  estanciaDataJson.geometriaPlanoNormalizada?.paredes?.find(
+                    (p) => p.wallId_OBJ === idSuperficie
+                  );
+                if (paredDataJson) {
+                  datosEstaticosParaForm = {
+                    areaNeta: paredDataJson.areaNetaCara_m2 || 0, // Área neta de la pared
+                    alturaTecho: estanciaDataJson.alturaTecho_m || 0,
+                    longitudOriginal_m: paredDataJson.longitudOriginal_m || 0, // Longitud de la pared
+                  };
+                }
+              }
             }
-            // --- FIN MOVIDO AQUÍ ---
+
+            if (!datosEstaticosParaForm) {
+              console.error(
+                `Error crítico: No se encontraron datos estáticos para ${idSuperficie} en ${roomId}. No se puede crear mini-form.`
+              );
+              // Podríamos mostrar un alert aquí o simplemente no crear el form
+            } else {
+              // --- FIN: Buscar Datos Estáticos ---
+
+              // Crear objeto con datos iniciales/devueltos por backend
+              const datosParaForm = {
+                idDetalle:
+                  respuestaBackend.idDetalle ||
+                  `new-<span class="math-inline">\{idSuperficie\}\-</span>{Date.now()}`,
+                idSuperficie: idSuperficie,
+                cotaInferior: 0, // Default para nuevo
+                cotaSuperior: datosEstaticosParaForm.alturaTecho, // Default para nuevo
+                huecosManuales: [], // Vacío para nuevo (solo aplica a suelo)
+                cantidadCalculadaM2: respuestaBackend.cantidadCalculada, // Usar cantidad devuelta por backend
+              };
+
+              // --- LLAMADA MODIFICADA: Pasar datosEstaticosParaForm ---
+              const miniFormElement = crearMiniFormularioSuperficie(
+                datosParaForm, // Datos dinámicos/iniciales
+                datosEstaticosParaForm, // Datos estáticos del JSON
+                contenedorFormularios,
+                roomId,
+                codigoProducto
+              );
+              // --- FIN LLAMADA MODIFICADA ---
+              // --- FIN USO DATOS BACKEND ---
+              if (miniFormElement) {
+                console.log(`Mini-form ${miniFormElement.id} creado.`);
+                // Enlazar el ID del indicador visual al dataset del formulario
+                miniFormElement.dataset.visualElementId =
+                  elementoVisualAsignacion.id;
+                console.log(
+                  ` - Enlazado a visualElementId: ${elementoVisualAsignacion.id}`
+                );
+
+                // Adjuntar Listeners (Paso futuro)
+                attachListenersToMiniForm(miniFormElement.id);
+
+                // Actualiza el display de cantidad total del producto AHORA
+                updateTotalQuantityDisplay(codigoProducto);
+
+                // Añadir listener al elemento visual para que pueda borrar usando el ID del form
+                // (Asegurarse que handleDeleteSurfaceAssignment usa el formId)
+                elementoVisualAsignacion.addEventListener("click", (event) => {
+                  event.stopPropagation();
+                  console.log(
+                    `Clic en indicador visual ${elementoVisualAsignacion.id}, llamando a borrar form ${miniFormElement.id}`
+                  );
+                  handleDeleteSurfaceAssignment(miniFormElement.id); // Llamar con el ID del FORM
+                });
+                elementoVisualAsignacion.style.cursor = "pointer";
+              } else {
+                console.error("Falló la creación del elemento mini-form.");
+                // Si falla la creación del form, ¿deberíamos borrar el indicador visual que acabamos de crear?
+                // elementoVisualAsignacion.remove(); // Opcional: limpiar indicador si form falla
+              }
+              // --- FIN MOVIDO AQUÍ ---
+            }
           } else {
             console.error(
               `No se encontró el contenedor para mini-forms de ${codigoProducto} en ${roomId}`
@@ -994,51 +1036,74 @@ function dibujarIndicadorSuelo(poligonoOriginal, codigo, color) {
 
 // --- DENTRO de generarPlanoEstancia.js ---
 
+// EN: generarPlanoEstancia.js
+
 /**
- * Calcula la cantidad neta para un detalle de superficie.
- * @param {number} longitud - Longitud de la superficie.
- * @param {number} cotaInf - Cota inferior.
- * @param {number} cotaSup - Cota superior.
- * @param {Array<object>} huecosArray - Array de objetos hueco, ej: [{largo: 1, alto: 1}, ...].
+ * Calcula la cantidad neta para un detalle de superficie (MODO FINAL).
+ * @param {boolean} esSuelo - True si es suelo, false si es pared.
+ * @param {object} datosEstaticos - Contiene areaNeta y alturaTecho (ej: { areaNeta: 10.5, alturaTecho: 2.5 }).
+ * @param {number} [cotaInf=0] - Cota inferior (relevante para paredes).
+ * @param {number} [cotaSup=datosEstaticos.alturaTecho] - Cota superior (relevante para paredes, default a altura total).
+ * @param {Array<object>} [huecosArray=[]] - Array de huecos [{largo, ancho}] (relevante para suelos).
  * @returns {number} La cantidad calculada en m², redondeada a 3 decimales.
  */
-function calcularCantidadDetalle(longitud, cotaInf, cotaSup, huecosArray) {
-  const long = parseFloat(longitud) || 0;
-  const cInf = parseFloat(cotaInf) || 0;
-  const cSup = parseFloat(cotaSup) || 0;
-  let restaHuecos = 0;
+function calcularCantidadNetaDetalle(
+  esSuelo,
+  datosEstaticos,
+  cotaInf = 0,
+  cotaSup,
+  huecosArray = []
+) {
+  const areaNeta = parseFloat(datosEstaticos?.areaNeta) || 0;
+  // Usar alturaTecho de datosEstaticos, o 0 si no está (aunque debería)
+  const alturaTecho = parseFloat(datosEstaticos?.alturaTecho) || 0;
+  let cantidadCalculada = 0;
 
-  // Sumar el área de los huecos válidos
-  if (Array.isArray(huecosArray)) {
-    huecosArray.forEach((h) => {
-      const largo = parseFloat(h?.largo) || 0;
-      const alto = parseFloat(h?.alto) || 0;
-      if (largo > 0 && alto > 0) {
-        restaHuecos += largo * alto;
-      }
-    });
+  if (esSuelo) {
+    // Cálculo para SUELO: Área Neta Total - Suma Huecos Manuales
+    let restaHuecos = 0;
+    if (Array.isArray(huecosArray)) {
+      huecosArray.forEach((h) => {
+        const largo = parseFloat(h?.largo) || 0;
+        const ancho = parseFloat(h?.ancho) || 0; // Usar ancho
+        if (largo > 0 && ancho > 0) {
+          restaHuecos += largo * ancho;
+        }
+      });
+    }
+    cantidadCalculada = Math.max(0, areaNeta - restaHuecos);
+    // Logger.log(`Calc Suelo: AreaNeta=${areaNeta}, Resta=${restaHuecos} -> ${cantidadCalculada}`);
+  } else {
+    // Es PARED
+    // Cálculo para PARED: Área Neta Total * Proporción Altura Aplicada
+    const cotaInferiorNum = parseFloat(cotaInf) || 0;
+    // Si cotaSup no es un número válido O es menor que cotaInf, usar alturaTotal como default
+    let cotaSuperiorNum = parseFloat(cotaSup);
+    if (isNaN(cotaSuperiorNum) || cotaSuperiorNum < cotaInferiorNum) {
+      cotaSuperiorNum = alturaTecho;
+    }
+
+    if (alturaTecho > 0) {
+      const alturaAplicada = Math.max(0, cotaSuperiorNum - cotaInferiorNum);
+      const proporcionAltura = Math.min(1, alturaAplicada / alturaTecho); // Entre 0 y 1
+      cantidadCalculada = areaNeta * proporcionAltura; // Área Neta * Proporción
+      // Logger.log(`Calc Pared: AreaNeta=${areaNeta}, AlturaAplic=${alturaAplicada}, AlturaTotal=${alturaTecho}, Prop=${proporcionAltura} -> ${cantidadCalculada}`);
+    } else {
+      Logger.log(
+        `WARN calcularCantidadNetaDetalle: Altura de techo es 0 para cálculo de pared.`
+      );
+      cantidadCalculada = 0;
+    }
   }
-
-  const alturaNeta = cSup - cInf;
-  // Asegurarse que la altura neta no sea negativa
-  if (alturaNeta < 0) {
-    console.warn(
-      `Cálculo cantidad: Cota superior (${cSup}) es menor que inferior (${cInf}). Usando altura 0.`
-    );
-    return 0;
-  }
-
-  const cantidadBruta = long * alturaNeta;
-  const cantidadNeta = Math.max(0, cantidadBruta - restaHuecos); // Evitar cantidades negativas
-
-  // Devolver como número redondeado
-  return +cantidadNeta.toFixed(3);
+  return +cantidadCalculada.toFixed(3); // Devolver número redondeado
 }
 
 /**
- * Crea y añade el HTML del mini-formulario para un detalle de superficie.
- * @param {object} detalleData - Objeto con los datos del detalle (puede tener valores por defecto si es nuevo).
- * Ej: { idDetalle?, idSuperficie, cotaInferior?, cotaSuperior?, longitudSuperficie?, huecosJSON? }
+ * Crea y añade el HTML del mini-formulario para un detalle de superficie (VERSIÓN FINAL).
+ * Muestra inputs de Cota para paredes, o inputs de Huecos (Largo/Ancho) para suelo.
+ * Calcula y muestra la cantidad inicial correctamente según el tipo.
+ * @param {object} detalleData - Objeto con datos guardados: { idDetalle?, idSuperficie, cotaInferior?, cotaSuperior?, huecosManuales?, cantidadCalculadaM2? }
+ * @param {object} datosEstaticos - Objeto con datos del JSON: { longitudOriginal_m?, areaNetaCara_m2?, alturaTecho_m?, areaNetaSuelo_m2? }
  * @param {HTMLElement} contenedorDOM - El elemento HTML donde se añadirá este formulario.
  * @param {string} roomId - El ID de la habitación.
  * @param {string} codigoProducto - El código del producto asociado.
@@ -1046,140 +1111,153 @@ function calcularCantidadDetalle(longitud, cotaInf, cotaSup, huecosArray) {
  */
 function crearMiniFormularioSuperficie(
   detalleData,
+  datosEstaticos,
   contenedorDOM,
   roomId,
   codigoProducto
 ) {
-  console.log(`Creando mini-form para:`, {
-    detalleData,
-    roomId,
-    codigoProducto,
-  });
-
-  // --- Obtener valores o establecer defaults ---
-  // Usar ID_Detalle real si existe (al restaurar), o uno temporal si es nuevo
   const idSuperficie = detalleData.idSuperficie;
-  const idDetalle =
-    detalleData.idDetalle || `new-${idSuperficie}-${Date.now()}`;
+  const esSuelo = idSuperficie === "floor";
+
+  // Validaciones iniciales
   if (!idSuperficie) {
-    console.error("Error crítico: Falta idSuperficie para crear mini-form.");
+    console.error("Falta idSuperficie para crear mini-form.");
+    return null;
+  }
+  if (!datosEstaticos) {
+    console.error("Faltan datos estáticos para crear mini-form.");
+    return null;
+  }
+  if (!contenedorDOM || !contenedorDOM.appendChild) {
+    console.error("Contenedor DOM inválido:", contenedorDOM);
     return null;
   }
 
-  const cotaInf =
-    detalleData.cotaInferior !== undefined ? detalleData.cotaInferior : 0;
+  // Extraer datos necesarios (con valores por defecto seguros)
+  const idDetalle =
+    detalleData.idDetalle || `new-${idSuperficie}-${Date.now()}`;
+  const formId = `miniform-${roomId}-${codigoProducto}-${idSuperficie.replace(
+    /[^a-zA-Z0-9]/g,
+    ""
+  )}`;
 
-  // Obtener altura por defecto (NECESITA IMPLEMENTACIÓN de getRoomHeight)
-  // Asumimos 2.5 como fallback si getRoomHeight no está lista o falla
-  const alturaDefault = getRoomHeight(roomId) || 2.5;
+  // Datos estáticos específicos
+  const alturaTecho = datosEstaticos.alturaTecho_m || 0;
+  const areaNeta = esSuelo
+    ? datosEstaticos.areaNetaSuelo_m2 || 0
+    : datosEstaticos.areaNetaCara_m2 || 0;
+  const longitud = esSuelo ? 0 : datosEstaticos.longitudOriginal_m || 0;
+
+  // Datos dinámicos (del estado guardado)
+  const cotaInf =
+    detalleData.cotaInferior !== undefined ? detalleData.cotaInferior : 0; // Default 0 para paredes
   const cotaSup =
     detalleData.cotaSuperior !== undefined
       ? detalleData.cotaSuperior
-      : alturaDefault;
+      : alturaTecho; // Default altura techo para paredes
+  const huecos = Array.isArray(detalleData.huecosManuales)
+    ? detalleData.huecosManuales
+    : []; // Para suelos
 
-  // Obtener longitud (NECESITA IMPLEMENTACIÓN de getSegmentLength)
-  // Asumimos 0 como fallback si getSegmentLength no está lista o falla
-  const longitud =
-    detalleData.longitudSuperficie !== undefined
-      ? detalleData.longitudSuperficie
-      : getSegmentLength(idSuperficie, roomId) || 0;
-
-  // Huecos: Asegurarse que es un array
-  const huecos = Array.isArray(detalleData.huecosJSON)
-    ? detalleData.huecosJSON
-    : [];
-
-  // Calcular cantidad inicial
-  const cantidadInicial = calcularCantidadDetalle(
-    longitud,
+  // --- Calcular Cantidad Inicial usando la función CORRECTA ---
+  const cantidadInicial = calcularCantidadNetaDetalle(
+    esSuelo,
+    { areaNeta: areaNeta, alturaTecho: alturaTecho }, // Pasar datos estáticos necesarios
     cotaInf,
     cotaSup,
     huecos
   );
+  // --- Fin Cálculo Inicial ---
 
-  // ID único para el contenedor del formulario
-  const formId = `miniform-${roomId}-${codigoProducto}-${idSuperficie.replace(
-    /[^a-zA-Z0-9]/g,
-    ""
-  )}`; // Crear ID válido para HTML
-
-  // --- Crear estructura HTML ---
+  // Crear Contenedor y guardar Data Attributes
   const divForm = document.createElement("div");
-  divForm.className = "mini-form-superficie"; // Clase principal para estilos
+  divForm.className = "mini-form-superficie";
   divForm.id = formId;
-  // Guardar datos clave en atributos data-* para fácil acceso desde listeners
-  divForm.dataset.idDetalle = idDetalle; // Puede ser 'new-...' inicialmente
+  divForm.dataset.idDetalle = idDetalle;
   divForm.dataset.idSuperficie = idSuperficie;
   divForm.dataset.codigoProducto = codigoProducto;
   divForm.dataset.roomId = roomId;
-  divForm.dataset.longitud = longitud.toFixed(4); // Guardar longitud como data attribute
+  // Guardar datos estáticos que se necesitarán para recalcular en el cliente
+  divForm.dataset.areaNeta = areaNeta.toFixed(4);
+  divForm.dataset.alturaTecho = alturaTecho.toFixed(4);
+  divForm.dataset.longitud = longitud.toFixed(4); // Solo relevante para paredes (display)
 
-  let formHTML = `
-      <div class="mini-form-header">
-          <strong>Superficie: ${idSuperficie}</strong>
-          <span class="longitud-display">(Long: ${longitud.toFixed(2)} m)</span>
-      </div>
-      <div class="mini-form-row cotas-row">
-          <label for="${formId}-cotaInf">Cota Inf (m):</label>
-          <input type="number" id="${formId}-cotaInf" class="cota-input" data-prop="cotaInferior" step="0.01" min="0" value="${cotaInf}">
-          <label for="${formId}-cotaSup">Cota Sup (m):</label>
-          <input type="number" id="${formId}-cotaSup" class="cota-input" data-prop="cotaSuperior" step="0.01" min="0" value="${cotaSup}">
-      </div>
-      <div class="mini-form-huecos">
-          <strong class="huecos-titulo">Huecos a restar:</strong>
-          <div class="huecos-container">`; // Contenedor para filas de huecos
+  // --- Construir HTML Interno (Condicional) ---
+  let formHTML = "";
 
-  // --- Añadir filas para huecos existentes ---
-  huecos.forEach((hueco, index) => {
-    // Generar ID único para la fila del hueco
-    const huecoRowId = `${formId}-hueco-${index}`;
-    // Usamos comillas simples dentro del onclick para el formId
+  if (esSuelo) {
+    // --- HTML para SUELO ---
+    formHTML = `
+          <div class="mini-form-header">
+              <strong>Superficie: SUELO</strong>
+              <span class="longitud-display">(Área Neta OBJ: ${areaNeta.toFixed(
+                2
+              )} m²)</span>
+          </div>
+          <div class="mini-form-huecos">
+              <strong class="huecos-titulo">Áreas a restar (manual):</strong>
+              <div class="huecos-container">`; // Contenedor para filas de huecos
+    // Añadir filas de huecos existentes
+    huecos.forEach((hueco, index) => {
+      const huecoRowId = `${formId}-hueco-${index}`;
+      formHTML += `
+              <div class="hueco-row" id="${huecoRowId}" data-hueco-index="${index}">
+                  <label>H${index + 1}:</label>
+                  Largo: <input type="number" class="hueco-input" data-prop="largo" step="0.01" min="0" value="${
+                    hueco.largo || ""
+                  }" placeholder="Largo (m)">
+                  &times; Ancho: <input type="number" class="hueco-input" data-prop="ancho" step="0.01" min="0" value="${
+                    hueco.ancho || ""
+                  }" placeholder="Ancho (m)">
+                  <button type="button" class="remove-hueco-btn" title="Eliminar Hueco" onclick="removeHueco('${huecoRowId}', '${formId}')">&times;</button>
+              </div>`;
+    });
     formHTML += `
-          <div class="hueco-row" id="${huecoRowId}" data-hueco-index="${index}">
-              <label>H${index + 1} (m):</label>
-              L: <input type="number" class="hueco-input" data-prop="largo" step="0.01" min="0" value="${
-                hueco.largo || ""
-              }" placeholder="Largo">
-              &times; Al: <input type="number" class="hueco-input" data-prop="alto" step="0.01" min="0" value="${
-                hueco.alto || ""
-              }" placeholder="Alto">
-              <button type="button" class="remove-hueco-btn" title="Eliminar Hueco" onclick="removeHueco('${huecoRowId}', '${formId}')">&times;</button>
-          </div>`;
-  });
+              </div>
+              <button type="button" class="add-hueco-btn" onclick="addHueco(this, '${formId}')">+ Añadir Área a restar</button>
+          </div>
+      `;
+  } else {
+    // --- HTML para PARED ---
+    formHTML = `
+          <div class="mini-form-header">
+              <strong>Superficie: ${idSuperficie}</strong>
+              <span class="longitud-display">(Long: ${longitud.toFixed(
+                2
+              )} m, Área Neta: ${areaNeta.toFixed(2)} m²)</span>
+          </div>
+          <div class="mini-form-row cotas-row">
+              <label for="${formId}-cotaInf">Cota Inf (m):</label>
+              <input type="number" id="${formId}-cotaInf" class="cota-input" data-prop="cotaInferior" step="0.01" min="0" value="${cotaInf}" max="${cotaSup}">
+              <label for="${formId}-cotaSup">Cota Sup (m):</label>
+              <input type="number" id="${formId}-cotaSup" class="cota-input" data-prop="cotaSuperior" step="0.01" min="${cotaInf}" value="${cotaSup}">
+          </div>
+      `;
+  }
 
-  // Cerrar divs y añadir botón para añadir hueco
+  // --- HTML Común (Resultado y Acciones) ---
   formHTML += `
-          </div> 
-          <button type="button" class="add-hueco-btn" onclick="addHueco(this, '${formId}')">+ Restar hueco</button>
-      </div>
       <div class="mini-form-resultado">
-          <strong>Cantidad (m²):</strong>
+          <p>Cantidad (m²):</p>
           <span class="cantidad-calculada-display">${cantidadInicial.toFixed(
             3
           )}</span>
       </div>
       <div class="mini-form-actions">
-           <button type="button" class="delete-surface-btn" title="Eliminar asignación de esta superficie" onclick="handleDeleteSurfaceAssignment('${formId}')">Eliminar Superficie</button>
+           <button type="button" class="delete-surface-btn" title="Eliminar asignación de esta superficie" onclick="handleDeleteSurfaceAssignment('${formId}')">Eliminar Asignación</button>
       </div>
   `;
 
-  divForm.innerHTML = formHTML;
+  divForm.innerHTML = formHTML; // Establecer el HTML construido
 
-  // --- Añadir al DOM ---
-  if (contenedorDOM && contenedorDOM.appendChild) {
-    contenedorDOM.appendChild(divForm);
-    console.log(`Mini-form ${formId} añadido al DOM.`);
-    // --- Adjuntar Listeners (próximo paso) ---
-    // Aquí llamaríamos a la función que añade los listeners de input, etc.
-    // attachListenersToMiniForm(formId);
-    return divForm; // Devolver el elemento creado
-  } else {
-    console.error(
-      "Contenedor DOM no válido para el mini-formulario:",
-      contenedorDOM
-    );
-    return null;
-  }
+  // --- Añadir al DOM y Devolver ---
+  contenedorDOM.appendChild(divForm);
+  console.log(
+    `Mini-form ${formId} (${esSuelo ? "Suelo" : "Pared"}) añadido al DOM.`
+  );
+  // Llamar a adjuntar listeners después de añadir al DOM
+  attachListenersToMiniForm(formId);
+  return divForm;
 }
 
 // --- FUNCIONES PLACEHOLDER (NECESITAN IMPLEMENTACIÓN) ---
@@ -1373,6 +1451,36 @@ function restaurarAsignacionesVisuales(asignacionEnriquecida, divIdPlano) {
     const { idSuperficie } = detalle;
     if (!idSuperficie) return; // Saltar si falta ID de superficie
 
+    const esSuelo = idSuperficie === "floor";
+
+    // --- INICIO: Buscar Datos Estáticos para este detalle ---
+    const estanciaDataJson = window.datosExpediente?.estancias?.[roomId]; // roomId viene del parámetro de la función padre
+    let datosEstaticosParaForm = null;
+
+    if (estanciaDataJson) {
+      if (esSuelo) {
+        datosEstaticosParaForm = {
+          areaNeta: estanciaDataJson.areaOBJ_m2 || 0,
+          alturaTecho: estanciaDataJson.alturaTecho_m || 0,
+          longitudOriginal_m: 0,
+        };
+      } else {
+        // Es pared
+        const paredDataJson =
+          estanciaDataJson.geometriaPlanoNormalizada?.paredes?.find(
+            (p) => p.wallId_OBJ === idSuperficie
+          );
+        if (paredDataJson) {
+          datosEstaticosParaForm = {
+            areaNeta: paredDataJson.areaNetaCara_m2 || 0,
+            alturaTecho: estanciaDataJson.alturaTecho_m || 0,
+            longitudOriginal_m: paredDataJson.longitudOriginal_m || 0,
+          };
+        }
+      }
+    }
+    // --- FIN: Buscar Datos Estáticos ---
+
     // 1. Dibujar Indicador Visual (con offset)
     let elementoVisual;
     if (idSuperficie === "floor") {
@@ -1404,12 +1512,15 @@ function restaurarAsignacionesVisuales(asignacionEnriquecida, divIdPlano) {
     }
 
     // 2. Crear Mini-Formulario (pasando los datos guardados)
+    // --- LLAMADA MODIFICADA ---
     const miniFormElement = crearMiniFormularioSuperficie(
-      detalle,
-      contenedorFormularios,
+      detalle, // Pasar el objeto detalle COMPLETO (con cotas/huecos guardados)
+      datosEstaticosParaForm, // Pasar los datos estáticos encontrados
+      contenedorFormularios, // Asegúrate que este contenedor existe
       roomId,
       codigoProducto
     );
+    // --- FIN LLAMADA ---
 
     // 3. Enlazar, adjuntar listeners si ambos se crearon
     if (miniFormElement) {
