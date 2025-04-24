@@ -868,7 +868,7 @@ function handleDeleteSurfaceAssignment(formId) {
         // Eliminar el mini-form del DOM
         divForm.remove();
         // TODO: Actualizar cantidad total
-        // updateTotalQuantityDisplay(codigoProducto);
+        updateTotalQuantityDisplay(codigoProducto);
         mostrarNotificacion("Asignación de superficie eliminada.");
       } else {
         alert(
@@ -883,7 +883,6 @@ function handleDeleteSurfaceAssignment(formId) {
       divForm.style.opacity = "1"; // Restaurar opacidad si falla
     })
     .eliminarDetalleSuperficie(detallePK); // Llamar a la función backend correcta
-    recalcularDiferencia();
 }
 
 // --- NECESITARÁS LA FUNCIÓN attachListenersToMiniForm (Aún por implementar) ---
