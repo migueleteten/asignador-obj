@@ -1116,6 +1116,12 @@ function crearMiniFormularioSuperficie(
   roomId,
   codigoProducto
 ) {
+  // --- Log de Entradas (MUY IMPORTANTE) ---
+  console.log(`DEBUG: CrearMiniForm - Inputs para ${detalleData?.idSuperficie || 'N/A'} en ${roomId}`);
+  // Usar JSON.stringify para ver bien los objetos anidados
+  console.log("  -> detalleData RECIBIDO:", JSON.stringify(detalleData || null, null, 2));
+  console.log("  -> datosEstaticos RECIBIDO:", JSON.stringify(datosEstaticos || null, null, 2));
+  // --- Fin Log Entradas ---
   const idSuperficie = detalleData.idSuperficie;
   const esSuelo = idSuperficie === "floor";
 
@@ -1159,6 +1165,15 @@ function crearMiniFormularioSuperficie(
     ? detalleData.huecosManuales
     : []; // Para suelos
 
+  // --- Log ANTES de Calcular ---
+  console.log(`DEBUG: CrearMiniForm - Argumentos para calcularCantidadNetaDetalle:`);
+  console.log(`    esSuelo: ${esSuelo}`);
+  console.log(`    datosEstaticos (para calc):`, { areaNeta: areaNeta, alturaTecho: alturaTecho }); // Pasar objeto
+  console.log(`    cotaInf: ${cotaInf}`);
+  console.log(`    cotaSup: ${cotaSup}`);
+  console.log(`    huecosArray: ${JSON.stringify(huecos)}`);
+  // --- Fin Log Args ---
+
   // --- Calcular Cantidad Inicial usando la función CORRECTA ---
   const cantidadInicial = calcularCantidadNetaDetalle(
     esSuelo,
@@ -1168,6 +1183,10 @@ function crearMiniFormularioSuperficie(
     huecos
   );
   // --- Fin Cálculo Inicial ---
+
+  // --- Log DESPUÉS de Calcular ---
+  console.log(`DEBUG: CrearMiniForm - cantidadInicial calculada: ${cantidadInicial}`);
+  // --- Fin Log Result ---
 
   // Crear Contenedor y guardar Data Attributes
   const divForm = document.createElement("div");
