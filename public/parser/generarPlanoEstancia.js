@@ -130,7 +130,7 @@ function generarPlanoEstancia(roomId, divId) {
       linea.setAttribute("y2", y2.toFixed(2));
       linea.setAttribute("stroke", "#777777"); // Gris oscuro para paredes
       linea.setAttribute("stroke-width", "15"); // Grosor para que sea fácil hacer clic
-      linea.setAttribute("stroke-linecap", "round");
+      linea.setAttribute("stroke-linecap", "square");
       linea.setAttribute("class", "pared superficie-asignable"); // Clase genérica
 
       // --- AÑADIR ATRIBUTOS data-* con información clave ---
@@ -972,7 +972,7 @@ function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
 
   newLine.setAttribute("stroke", color);
   newLine.setAttribute("stroke-width", "8");
-  newLine.setAttribute("stroke-linecap", "round");
+  newLine.setAttribute("stroke-linecap", "square");
   newLine.setAttribute("class", "indicador-asignacion pared-asignada");
 
   // Datos para identificar esta asignación específica
