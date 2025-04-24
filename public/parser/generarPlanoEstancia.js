@@ -626,144 +626,157 @@ const guardarDetalleDebounced = debounce(function (detalleParaGuardar) {
 }, 1200); // Debounce de 1.2 segundos (ajusta si quieres)
 
 /**
- * Adjunta los event listeners necesarios a los inputs y botones de un mini-form.
- * @param {string} formId - El ID del elemento div.mini-form-superficie.
- */
-function attachListenersToMiniForm(formId) {
-  const divForm = document.getElementById(formId);
-  if (!divForm) {
-    console.error(`attachListeners: No se encontró form con ID ${formId}`);
-    return;
-  }
-
-  // Listeners para inputs de Cotas y Huecos
-  const inputs = divForm.querySelectorAll(".cota-input, .hueco-input");
-  inputs.forEach((input) => {
-    // Usamos input para respuesta inmediata, change para asegurar guardado al salir
-    input.addEventListener("input", handleMiniFormInputChange);
-    input.addEventListener("change", handleMiniFormInputChange);
-    // Guardar ID del form en el input para fácil acceso en el handler
-    input.dataset.formId = formId;
-  });
-
-  // Listeners para botones (Add/Remove Hueco, Delete Surface) ya están en el onclick.
-  // Podríamos añadirlos aquí también si quitamos los onclick del HTML. Por ahora está bien así.
-  console.log(`Listeners añadidos (o verificados) para ${formId}`);
-}
-
-/**
- * Handler para eventos 'input' o 'change' en los inputs del mini-form.
- * Llama a la función de recálculo y guardado (con debounce).
- * @param {Event} event - El objeto evento.
- */
-function handleMiniFormInputChange(event) {
-  const input = event.target;
-  // Obtener formId desde el dataset del input o subiendo por el DOM
-  const formId =
-    input.dataset.formId || input.closest(".mini-form-superficie")?.id;
-  if (!formId) {
-    console.error(
-      "handleMiniFormInputChange: No se pudo determinar formId desde",
-      input
-    );
-    return;
-  }
-  // Llamar a la función principal de recálculo y guardado (esta llamará al debounce)
-  recalculateAndUpdateMiniForm(formId, true); // true indica que es un cambio de input (para debounce)
-}
-
-// --- Modificar `removeHueco` para que llame a recalcular ---
-function removeHueco(huecoRowId, formId) {
-  const huecoRow = document.getElementById(huecoRowId);
-  if (huecoRow) {
-    huecoRow.remove();
-    // Llamar a recalcular y guardar SIN debounce porque es una acción directa
-    recalculateAndUpdateMiniForm(formId, false); // false indica que no necesita debounce
-  }
-}
-
-/**
- * Lee todos los valores de un mini-form, recalcula la cantidad,
- * actualiza el display de cantidad del mini-form, y llama (con debounce)
- * a la función para guardar los datos en el backend.
+ * Lee valores actuales de un mini-form, recalcula cantidad neta,
+ * actualiza el display del mini-form, y lanza el guardado debounced.
  * @param {string} formId - El ID del mini-form a procesar.
- * @param {boolean} isInputChange - true si la llamada viene de un evento 'input', para aplicar debounce.
+ * @param {boolean} [applyDebounce=true] - Indica si se debe usar debounce.
  */
-function recalculateAndUpdateMiniForm(formId, isInputChange = false) {
+function recalculateAndUpdateMiniForm(formId, applyDebounce = true) {
   const divForm = document.getElementById(formId);
   if (!divForm) {
-    console.error(
-      `recalculateAndUpdateMiniForm: No se encontró form con ID ${formId}`
-    );
-    return;
+      console.error(`recalculateAndUpdate: No se encontró form ${formId}`);
+      return;
   }
-  console.log(`Recalculando para ${formId}...`);
+  // console.log(`Recalculando para ${formId}...`); // Log opcional
 
-  // --- Leer valores actuales del formulario ---
-  const cotaInfInput = divForm.querySelector(
-    '.cota-input[data-prop="cotaInferior"]'
-  );
-  const cotaSupInput = divForm.querySelector(
-    '.cota-input[data-prop="cotaSuperior"]'
-  );
-  // La longitud la leemos del dataset donde la guardamos al crear
-  const longitud = parseFloat(divForm.dataset.longitud) || 0;
-  const cotaInf = parseFloat(cotaInfInput?.value) || 0;
-  const cotaSup = parseFloat(cotaSupInput?.value) || 0;
+  // --- Obtener Datos Clave y Estáticos del Formulario (desde dataset) ---
+  const idSuperficie = divForm.dataset.idSuperficie;
+  const esSuelo = (idSuperficie === 'floor');
+  const codigoProducto = divForm.dataset.codigoProducto;
+  const roomId = divForm.dataset.roomId;
+  const expediente = sessionStorage.getItem("expedienteSeleccionado");
+  const idDetalle = divForm.dataset.idDetalle; // ID existente o el temporal 'new-...'
 
-  const huecosArray = [];
-  divForm.querySelectorAll(".hueco-row").forEach((row) => {
-    const largoInput = row.querySelector('.hueco-input[data-prop="largo"]');
-    const altoInput = row.querySelector('.hueco-input[data-prop="alto"]');
-    // Parsear valores, usar 0 si está vacío o no es número válido
-    const largo = parseFloat(largoInput?.value) || 0;
-    const alto = parseFloat(altoInput?.value) || 0;
-    // Solo añadir hueco si AMBOS largo y alto tienen un valor positivo
-    // O podrías decidir añadirlo si al menos uno tiene valor? Ajusta la lógica si es necesario.
-    // Por ahora, solo contamos huecos completos.
-    if (largo > 0 && alto > 0) {
-      huecosArray.push({ largo: +largo.toFixed(3), alto: +alto.toFixed(3) }); // Guardar con precisión
-    } else if (largoInput?.value.trim() || altoInput?.value.trim()) {
-      console.warn("Hueco inválido o incompleto detectado en:", row.id);
-      // Aquí podrías añadir una clase de error al input o a la fila
-      // row.classList.add('hueco-invalido');
-    }
-  });
+  // Datos estáticos necesarios para el cálculo
+  const datosEstaticos = {
+      areaNeta: parseFloat(divForm.dataset.areaNeta) || 0,
+      alturaTecho: parseFloat(divForm.dataset.alturaTecho) || 0
+      // Longitud no es necesaria para calcular cantidad neta
+  };
 
-  // --- Calcular nueva cantidad ---
-  const nuevaCantidad = calcularCantidadDetalle(
-    longitud,
-    cotaInf,
-    cotaSup,
-    huecosArray
-  );
+  // --- Leer Datos Dinámicos del Formulario ---
+  let cotaInf = 0, cotaSup = datosEstaticos.alturaTecho, huecosArray = [];
+  // Objeto base para guardar, solo con claves identificativas
+  let detalleParaGuardar = { expediente, estancia: roomId, codigoProducto, idSuperficie, idDetalle };
+
+  if (esSuelo) {
+      // --- Lógica para Suelo ---
+      huecosArray = []; // Resetear array de huecos
+      divForm.querySelectorAll('.hueco-row').forEach(row => {
+           const largoInput = row.querySelector('.hueco-input[data-prop="largo"]');
+           const anchoInput = row.querySelector('.hueco-input[data-prop="ancho"]'); // Usar ancho
+           const largo = parseFloat(largoInput?.value) || 0;
+           const ancho = parseFloat(anchoInput?.value) || 0;
+           if (largo > 0 && ancho > 0) {
+               // Guardar con precisión y asegurar que son números
+               huecosArray.push({ largo: +largo.toFixed(3), ancho: +ancho.toFixed(3) });
+           }
+      });
+      // Añadir SOLO huecosJSON a los datos a guardar
+      detalleParaGuardar.huecosJSON = huecosArray; // Guardar array de objetos
+
+  } else {
+      // --- Lógica para Pared ---
+      const cotaInfInput = divForm.querySelector('.cota-input[data-prop="cotaInferior"]');
+      const cotaSupInput = divForm.querySelector('.cota-input[data-prop="cotaSuperior"]');
+      cotaInf = parseFloat(cotaInfInput?.value) || 0;
+      // Leer cotaSup, si es inválida o menor que cotaInf, usar alturaTecho
+      let cotaSupTemp = parseFloat(cotaSupInput?.value);
+      cotaSup = (!isNaN(cotaSupTemp) && cotaSupTemp >= cotaInf) ? cotaSupTemp : datosEstaticos.alturaTecho;
+      // Añadir SOLO cotas a los datos a guardar
+      detalleParaGuardar.cotaInferior = +cotaInf.toFixed(3); // Guardar número con precisión
+      detalleParaGuardar.cotaSuperior = +cotaSup.toFixed(3);
+      detalleParaGuardar.huecosJSON = []; // Enviar array vacío para paredes
+  }
+
+  // --- Calcular Nueva Cantidad (usando la función correcta) ---
+  const nuevaCantidad = calcularCantidadNetaDetalle(esSuelo, datosEstaticos, cotaInf, cotaSup, huecosArray);
 
   // --- Actualizar display de cantidad del mini-form ---
   const displayCantidad = divForm.querySelector(".cantidad-calculada-display");
   if (displayCantidad) {
-    displayCantidad.textContent = nuevaCantidad.toFixed(3); // Mostrar con 3 decimales
+      displayCantidad.textContent = nuevaCantidad.toFixed(3);
+  } else { console.warn("No se encontró .cantidad-calculada-display en", formId); }
+
+  // --- Llamar a guardar en backend ---
+  // console.log("Datos recalculados listos para guardar:", detalleParaGuardar); // Log opcional
+  // Llamar a la función debounced o directa según el contexto
+  if (applyDebounce) {
+       guardarDetalleDebounced(detalleParaGuardar); // Llama a la versión debounced
+  } else {
+       // Si es acción directa (borrar hueco), llamamos a la versión debounced igualmente
+       // para asegurar que solo la última versión de los datos se guarda si hay cambios rápidos.
+        guardarDetalleDebounced(detalleParaGuardar);
   }
+}
 
-  // --- Preparar datos y llamar a guardar en backend (con debounce si aplica) ---
-  const detalleParaGuardar = {
-    expediente: sessionStorage.getItem("expedienteSeleccionado"),
-    estancia: divForm.dataset.roomId,
-    codigoProducto: divForm.dataset.codigoProducto,
-    idSuperficie: divForm.dataset.idSuperficie,
-    cotaInferior: cotaInf,
-    cotaSuperior: cotaSup,
-    longitudSuperficie: longitud,
-    huecosJSON: huecosArray, // El array de objetos hueco (se hará JSON.stringify en backend o al enviar)
-    // El ID_Detalle no lo enviamos, el backend lo busca o crea uno nuevo si es inserción
-  };
+/**
+* Handler para eventos 'input' o 'change' en los inputs del mini-form.
+* Llama a la función de recálculo y guardado, aplicando debounce para 'input'.
+* @param {Event} event - El objeto evento.
+*/
+function handleMiniFormInputChange(event) {
+  const input = event.target;
+  const formId = input.closest('.mini-form-superficie')?.id;
+  if (!formId) {
+       console.error("handleMiniFormInputChange: No se pudo determinar formId desde", input);
+       return;
+   }
+   // Aplicar debounce solo si el evento es 'input' (mientras se escribe)
+   // Si es 'change' (al perder foco), aplicamos debounce también para simplificar
+   // y evitar llamadas duplicadas si 'input' ya lo lanzó.
+   const applyDebounce = true; // Siempre usar debounce simplifica la lógica
+   // const applyDebounce = (event.type === 'input'); // Alternativa: solo debounce en input
+   recalculateAndUpdateMiniForm(formId, applyDebounce);
+}
 
-  // Llamar a la función debounced SIEMPRE, ella gestiona el retardo
-  guardarDetalleDebounced(detalleParaGuardar);
+/**
+* Elimina una fila de hueco del DOM y lanza el recálculo/guardado.
+* @param {string} huecoRowId - El ID del div.hueco-row a eliminar.
+* @param {string} formId - El ID del mini-form padre.
+*/
+function removeHueco(huecoRowId, formId) {
+   const huecoRow = document.getElementById(huecoRowId);
+   if (huecoRow) {
+       huecoRow.remove();
+       // Llamar a recalcular y guardar SIN debounce explícito (la función lo manejará)
+       // porque es una acción directa del usuario.
+       recalculateAndUpdateMiniForm(formId, false);
+   }
+}
 
-  // IMPORTANTE: La actualización de la CANTIDAD TOTAL del producto
-  // debería hacerse en el SUCCESS HANDLER de la llamada debounced,
-  // para reflejar el valor una vez GUARDADO en el backend.
-  // Por eso quitamos la llamada a updateTotalQuantityDisplay de aquí.
+
+/**
+* Adjunta los event listeners necesarios a los inputs interactivos de un mini-form.
+* @param {string} formId - El ID del elemento div.mini-form-superficie.
+*/
+function attachListenersToMiniForm(formId) {
+    const divForm = document.getElementById(formId);
+    if (!divForm) { console.error(`attachListeners: No se encontró form ${formId}`); return; }
+    const idSuperficie = divForm.dataset.idSuperficie;
+    const esSuelo = (idSuperficie === 'floor');
+
+    let inputsToListen = [];
+    if (esSuelo) {
+         // Solo buscar inputs de HUECOS
+         inputsToListen = divForm.querySelectorAll('.hueco-input');
+         console.log(`Adjuntando listeners a ${inputsToListen.length} inputs de hueco para ${formId}`);
+    } else { // Es Pared
+         // Solo buscar inputs de COTAS
+         inputsToListen = divForm.querySelectorAll('.cota-input');
+         console.log(`Adjuntando listeners a ${inputsToListen.length} inputs de cota para ${formId}`);
+    }
+
+    inputsToListen.forEach(input => {
+        // Comprobar si ya tiene listener para evitar duplicados
+         if (!input.dataset.listenerAttached) {
+              input.dataset.formId = formId; // Guardar ID para el handler
+              // Adjuntar listeners para 'input' (mientras escribe) y 'change' (al perder foco)
+              input.addEventListener('input', handleMiniFormInputChange);
+              input.addEventListener('change', handleMiniFormInputChange);
+              input.dataset.listenerAttached = 'true'; // Marcar como adjuntado
+         }
+    });
 }
 
 /**
