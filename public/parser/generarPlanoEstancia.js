@@ -1089,7 +1089,7 @@ function calcularCantidadNetaDetalle(
       cantidadCalculada = areaNeta * proporcionAltura; // Área Neta * Proporción
       // Logger.log(`Calc Pared: AreaNeta=${areaNeta}, AlturaAplic=${alturaAplicada}, AlturaTotal=${alturaTecho}, Prop=${proporcionAltura} -> ${cantidadCalculada}`);
     } else {
-      Logger.log(
+      console.log(
         `WARN calcularCantidadNetaDetalle: Altura de techo es 0 para cálculo de pared.`
       );
       cantidadCalculada = 0;
