@@ -1155,7 +1155,7 @@ function crearMiniFormularioSuperficie(
   const longitud = esSuelo ? 0 : datosEstaticos.longitudOriginal_m || 0;
 
   // --- !! NUEVO LOG PARA VERIFICAR EXTRACCIÓN !! ---
-  console.log(`DEBUG: CrearMiniForm - Valores EXTRAÍDOS: alturaTecho=${alturaTecho} (Tipo: <span class="math-inline">\{typeof alturaTecho\}\), areaNeta\=</span>{areaNeta} (Tipo: <span class="math-inline">\{typeof areaNeta\}\), longitud\=</span>{longitud} (Tipo: ${typeof longitud})`);
+  console.log(`DEBUG: CrearMiniForm - Valores EXTRAÍDOS: alturaTecho=${alturaTecho} (Tipo: ${typeof alturaTecho}), areaNeta=${areaNeta} (Tipo: ${typeof areaNeta}), longitud=${longitud} (Tipo: ${typeof longitud})`);
   // --- FIN NUEVO LOG ---
 
   // Datos dinámicos (del estado guardado)
