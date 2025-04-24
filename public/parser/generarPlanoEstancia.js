@@ -1201,8 +1201,8 @@ function getSegmentLength(idSuperficie, roomId) {
   if (idSuperficie === "floor") return 0; // Suelo no tiene longitud lineal definida así
   const roomData = window.datosExpediente?.estancias?.[roomId];
   const pared = roomData?.paredes?.find((p) => p.wallId === idSuperficie);
-  if (pared && pared.longitudOriginal !== undefined) {
-    return pared.longitudOriginal;
+  if (pared && pared.longitudOriginal_m !== undefined) {
+    return pared.longitudOriginal_m;
   }
   console.warn(
     `getSegmentLength: No se encontró longitud para superficie ${idSuperficie} en room ${roomId}. Usando fallback 0`
