@@ -59,36 +59,47 @@ function generarPlanoEstancia(roomId, divId) {
   svg.style.margin = "auto";
   svg.style.background = "#f8f8f8"; // Fondo muy claro para el SVG
 
-  // --- Dibujar Suelo (Usando geometriaNorm.suelo) ---
-  // La lógica es la misma, solo cambiamos la fuente de datos
+  // --- Dibujar Suelo (Contorno único o múltiples con agujeros) ---
   if (Array.isArray(geometriaNorm.suelo) && geometriaNorm.suelo.length >= 3) {
-    const suelo = document.createElementNS(svgNS, "polygon");
-    const puntosSuelo = geometriaNorm.suelo
-      .map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`) // Usar p.x, p.y
+    const sueloPath = document.createElementNS(svgNS, "path");
+    const suelos = Array.isArray(geometriaNorm.suelo[0])
+      ? geometriaNorm.suelo // Múltiples contornos
+      : [geometriaNorm.suelo]; // Solo uno, sin agujeros
+
+    // Generar el atributo 'd' del path SVG
+    const pathD = suelos
+      .map((contorno) => {
+        if (!Array.isArray(contorno) || contorno.length < 3) return "";
+        return (
+          "M " +
+          contorno.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ") +
+          " Z"
+        );
+      })
       .join(" ");
-    suelo.setAttribute("points", puntosSuelo);
-    suelo.setAttribute("fill", "#eeeeee"); // Gris claro suelo
-    suelo.setAttribute("stroke", "#cccccc"); // Borde gris
-    suelo.setAttribute("stroke-width", "15"); // Borde fino
-    suelo.setAttribute("class", "suelo superficie-asignable"); // Añadir clase genérica?
-    suelo.setAttribute("data-room-id", roomId); // Repetir roomId aquí es útil
-    suelo.setAttribute("data-surface-id", "floor"); // ID estándar para suelo
-    // Añadir área neta del suelo como data attribute
-    suelo.setAttribute(
+
+    sueloPath.setAttribute("d", pathD);
+    sueloPath.setAttribute("fill", "#eeeeee");
+    sueloPath.setAttribute("stroke", "#cccccc");
+    sueloPath.setAttribute("stroke-width", "15");
+    sueloPath.setAttribute("fill-rule", "evenodd");
+    sueloPath.setAttribute("class", "suelo superficie-asignable");
+    sueloPath.setAttribute("data-room-id", roomId);
+    sueloPath.setAttribute("data-surface-id", "floor");
+    sueloPath.setAttribute(
       "data-area-neta",
       estanciaData.areaOBJ_m2?.toFixed(3) || "N/A"
     );
-    suelo.style.cursor = "pointer";
-    suelo.addEventListener("click", (event) => {
+    sueloPath.style.cursor = "pointer";
+    sueloPath.addEventListener("click", (event) => {
       event.stopPropagation();
       if (window.productoEnAsignacion) {
-        // Pasamos expediente, roomId, código producto, 'floor' y el target
         realizarAsignacion("floor", "floor", event.target);
       } else {
         console.log(`Click en suelo de ${roomId} (sin producto para asignar)`);
       }
     });
-    svg.appendChild(suelo);
+    svg.appendChild(sueloPath);
   } else {
     console.warn(`Datos de suelo inválidos para ${roomId}.`);
   }
@@ -965,7 +976,7 @@ function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
     );
     return null;
   }
-  const sueloPoly = svgElement.querySelector('polygon.suelo'); // Buscar el polígono del suelo por su clase
+  const sueloPoly = svgElement.querySelector("polygon.suelo"); // Buscar el polígono del suelo por su clase
   const svgNS = "http://www.w3.org/2000/svg";
 
   // --- NUEVO: Lógica de Offset ---
