@@ -1225,80 +1225,55 @@ function crearMiniFormularioSuperficie(
   divForm.dataset.longitud = longitud.toFixed(4); // Solo relevante para paredes (display)
 
   // --- Construir HTML Interno (Condicional) ---
-  let formHTML = "";
-
-  if (esSuelo) {
-    // --- HTML para SUELO ---
-    formHTML = `
-          <div class="mini-form-header">
-              <strong>Superficie: SUELO</strong>
-              <span class="longitud-display">(Área Neta OBJ: ${areaNeta.toFixed(
-                2
-              )} m²)</span>
-          </div>
-          <div class="mini-form-huecos">
-              <strong class="huecos-titulo">Áreas a restar (manual):</strong>
-              <div class="huecos-container">`; // Contenedor para filas de huecos
-    // Añadir filas de huecos existentes
-    huecos.forEach((hueco, index) => {
-      const huecoRowId = `${formId}-hueco-${index}`;
-      formHTML += `
-              <div class="hueco-row" id="${huecoRowId}" data-hueco-index="${index}">
-                  <label>H${index + 1}:</label>
-                  Largo: <input type="number" class="hueco-input" data-prop="largo" step="0.01" min="0" value="${
-                    hueco.largo || ""
-                  }" placeholder="Largo (m)">
-                  &times; Ancho: <input type="number" class="hueco-input" data-prop="ancho" step="0.01" min="0" value="${
-                    hueco.ancho || ""
-                  }" placeholder="Ancho (m)">
-                  <button type="button" class="remove-hueco-btn" title="Eliminar Hueco" onclick="removeHueco('${huecoRowId}', '${formId}')">&times;</button>
-              </div>`;
-    });
-    formHTML += `
-              </div>
-              <button type="button" class="add-hueco-btn" onclick="addHueco(this, '${formId}')">+ Añadir Área a restar</button>
-          </div>
-      `;
-  } else {
-    // --- HTML para PARED ---
-    formHTML = `
-          <div class="mini-form-header">
-              <strong>Superficie: ${idSuperficie}</strong>
-              <span class="longitud-display">(Long: ${longitud.toFixed(
-                2
-              )} m, Área Neta: ${areaNeta.toFixed(2)} m²)</span>
-          </div>
-          <div class="mini-form-row cotas-row">
-              <label for="${formId}-cotaInf">Cota Inf (m):</label>
-              <input type="number" id="${formId}-cotaInf" class="cota-input" data-prop="cotaInferior" step="0.01" min="0" value="${cotaInf}" max="${cotaSup}">
-              <label for="${formId}-cotaSup">Cota Sup (m):</label>
-              <input type="number" id="${formId}-cotaSup" class="cota-input" data-prop="cotaSuperior" step="0.01" min="${cotaInf}" value="${cotaSup}">
-          </div>
-      `;
-  }
-
-  // --- HTML Común (Resultado y Acciones) ---
-  formHTML += `
-      <div class="mini-form-resultado">
-          <p>Cantidad (m²):</p>
-          <span class="cantidad-calculada-display">${cantidadInicial.toFixed(
-            3
-          )}</span>
-      </div>
-      <div class="mini-form-actions">
-           <button type="button" class="delete-surface-btn" title="Eliminar asignación de esta superficie" onclick="handleDeleteSurfaceAssignment('${formId}')">Eliminar Asignación</button>
-      </div>
+  let formHTML = `
+    <div class="mini-form-header">
+      <strong>Superficie: ${esSuelo ? "SUELO" : idSuperficie}</strong>
+      <!-- Botón de eliminación a la derecha -->
+      <button
+        type="button"
+        class="delete-surface-btn"
+        onclick="handleDeleteSurfaceAssignment('${divForm.id}')"
+      >&times;</button>
+    </div>
   `;
 
-  divForm.innerHTML = formHTML; // Establecer el HTML construido
+  if (esSuelo) {
+    // — Campos para suelos (invariables salvo la eliminación de área neta) —
+    formHTML += `
+      <div class="mini-form-huecos">
+        <strong class="huecos-titulo">Áreas a restar (manual):</strong>
+        <div class="huecos-container">
+          ${detalleData.huecosManuales
+            .map((hueco, i) => `
+            <div class="hueco-row" id="${divForm.id}-hueco-${i}" data-hueco-index="${i}">
+              <label>H${i+1}:</label>
+              Largo: <input type="number" class="hueco-input" data-prop="largo" value="${hueco.largo||""}" placeholder="m">
+              × Ancho: <input type="number" class="hueco-input" data-prop="ancho" value="${hueco.ancho||""}" placeholder="m">
+              <button type="button" class="remove-hueco-btn"
+                      onclick="removeHueco('${divForm.id}-hueco-${i}','${divForm.id}')">&times;</button>
+            </div>
+          `).join("")}
+        </div>
+        <button type="button" class="add-hueco-btn" onclick="addHueco(this,'${divForm.id}')">
+          + Añadir área
+        </button>
+      </div>
+    `;
+  }
+  // *En el caso de paredes*, ya no se genera ningún bloque de “cotas”
 
-  // --- Añadir al DOM y Devolver ---
+  // — Resultado y Cantidad (único dato relevante) —
+  formHTML += `
+    <div class="mini-form-resultado">
+      <span>Cantidad (m²):</span>
+      <span class="cantidad-calculada-display">${cantidadInicial.toFixed(3)}</span>
+    </div>
+  `;
+
+  divForm.innerHTML = formHTML;
   contenedorDOM.appendChild(divForm);
-  console.log(
-    `Mini-form ${formId} (${esSuelo ? "Suelo" : "Pared"}) añadido al DOM.`
-  );
-  // Llamar a adjuntar listeners después de añadir al DOM
-  attachListenersToMiniForm(formId);
+  attachListenersToMiniForm(divForm.id);
+
   return divForm;
 }
 
