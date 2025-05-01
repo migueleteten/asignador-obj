@@ -966,7 +966,18 @@ function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
     return null;
   }
   const sueloPoly = svgElement.querySelector('polygon.suelo'); // Buscar el polígono del suelo por su clase
+  const sueloIndicador = svgElement.querySelector('polygon.suelo-asignado');
   const svgNS = "http://www.w3.org/2000/svg";
+
+  // --- DATOS NECESARIOS ---
+  const estanciaData = window.datosExpediente?.estancias?.[roomId];
+  const sueloPoints = estanciaData?.geometriaPlanoNormalizada?.suelo; // Puntos normalizados del suelo
+
+  if (!Array.isArray(sueloPoints) || sueloPoints.length < 3) {
+      console.error(`No se encontraron puntos de suelo válidos para ${roomId} para calcular centroide.`);
+        // Podríamos usar 250,250 como fallback, pero es mejor fallar si faltan datos clave.
+      return null;
+  }
 
   // --- NUEVO: Lógica de Offset ---
   // Buscar indicadores existentes para esta MISMA pared
@@ -992,16 +1003,26 @@ function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
   const len = Math.sqrt(dx * dx + dy * dy);
   if (len < 1e-6) return null;
 
-  // Calcular vector normal unitario (perpendicular) e intentar apuntar hacia adentro
+  // --- Calcular Normal hacia Centroide ---
+  // 1. Calcular normal perpendicular inicial (unitario)
   let nx = -dy / len;
   let ny = dx / len;
+  // 2. Calcular punto medio de la pared
   const midX = (x1 + x2) / 2;
   const midY = (y1 + y2) / 2;
-  const vecToCenter = { x: 250 - midX, y: 250 - midY }; // Asume centro en 250,250
-  if (nx * vecToCenter.x + ny * vecToCenter.y < 0) {
-    nx = -nx;
-    ny = -ny;
+  // 3. Calcular centroide del polígono del suelo (usando puntos normalizados)
+  const centroid = calcularCentroide(sueloPoints); // Necesita helper calcularCentroide
+  // 4. Calcular vector del punto medio al centroide
+  const vecToCenter = { x: centroid.x - midX, y: centroid.y - midY };
+  // 5. Comprobar si la normal apunta hacia el centroide (producto escalar > 0)
+  const dotProduct = nx * vecToCenter.x + ny * vecToCenter.y;
+    // Logger.log(`Normal check for <span class="math-inline">\{wallId\}\: dot\=</span>{dotProduct.toFixed(2)}`); // Debug log
+  if (dotProduct < 0) { // Si el producto escalar es negativo, la normal apunta hacia afuera. Invertirla.
+        // Logger.log(` -> Flipping normal for ${wallId}`);
+      nx = -nx;
+      ny = -ny;
   }
+  // --- Fin Calcular Normal ---
 
   const newLine = document.createElementNS(svgNS, "line");
   // Aplicar el offset FINAL calculado
@@ -1028,7 +1049,11 @@ function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
     // Insertar la newLine ANTES del elemento que sigue al polígono del suelo.
     // Como las paredes se dibujan después del suelo, sueloPoly.nextSibling será la primera pared.
     // Si no hay paredes (raro), nextSibling es null y insertBefore lo añade al final (después del suelo).
-    svgElement.insertBefore(newLine, sueloPoly.nextSibling);
+    if (sueloIndicador){
+      svgElement.insertBefore(newLine, sueloIndicador.nextSibling);
+    } else if (sueloPoly) {
+      svgElement.insertBefore(newLine, sueloPoly.nextSibling);
+    }
     console.log(`Indicador ${visualId} insertado después del suelo.`);
   } catch (e) {
     console.error(
@@ -1050,6 +1075,23 @@ function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
   // --- FIN INSERCIÓN ---
 
   return newLine; // Devolver la línea creada
+}
+
+/**
+ * Calcula el centroide del polígono a partir de sus vértices
+ * @param {string} points 
+ * @returns {JSON} punto del centroide de un polígono
+ */
+
+function calcularCentroide(points) {
+  if (!points || points.length === 0) return { x: 250, y: 250 }; // Fallback to center
+  let sumX = 0;
+  let sumY = 0;
+  points.forEach(p => {
+      sumX += p.x;
+      sumY += p.y;
+  });
+  return { x: sumX / points.length, y: sumY / points.length };
 }
 
 /**
