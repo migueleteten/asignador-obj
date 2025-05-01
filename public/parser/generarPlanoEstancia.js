@@ -970,6 +970,7 @@ function dibujarIndicadorPared(lineaOriginal, codigo, wallId, color) {
   const svgNS = "http://www.w3.org/2000/svg";
 
   // --- DATOS NECESARIOS ---
+  const roomId = svgElement.getAttribute("data-room-id");
   const estanciaData = window.datosExpediente?.estancias?.[roomId];
   const sueloPoints = estanciaData?.geometriaPlanoNormalizada?.suelo; // Puntos normalizados del suelo
 
